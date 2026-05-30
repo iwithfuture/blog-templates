@@ -653,7 +653,7 @@ copyButton.addEventListener("click", async () => {
   await navigator.clipboard.writeText(toMarkdown(currentPlan));
   copyButton.textContent = "已复制";
   setTimeout(() => {
-    copyButton.textContent = "复制 Markdown";
+    copyButton.innerHTML = `<span aria-hidden="true">⧉</span>复制 Markdown`;
   }, 1400);
 });
 
