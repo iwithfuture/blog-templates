@@ -7,6 +7,9 @@ const tabs = Array.from(document.querySelectorAll(".tab"));
 
 let activeTab = "hubs";
 let currentPlan = null;
+let currentSerp = null;
+let serpState = "idle";
+let serpMessage = "";
 
 const pageTypeByIntent = {
   "定义认知": "百科/指南页",
@@ -327,6 +330,49 @@ function buildPlan(input) {
   return { input, hubs, spokes, priority, brief, faq, schema, links, calendar };
 }
 
+function classifySerpResult(result) {
+  const text = `${result.title} ${result.link} ${result.snippet}`.toLowerCase();
+  if (/reddit|quora|zhihu|forum|community|bbs/.test(text)) return "社区/论坛";
+  if (/tool|calculator|checker|generator|template|模板|工具|生成器|检测/.test(text)) return "工具/模板";
+  if (/service|agency|company|consulting|pricing|quote|服务|公司|代运营|报价|价格/.test(text)) return "服务/商业页";
+  if (/best|top|compare|vs|alternative|list|推荐|排行|对比|区别/.test(text)) return "列表/对比页";
+  if (/guide|how to|what is|tutorial|learn|指南|教程|是什么|怎么|如何/.test(text)) return "指南/教程";
+  if (/blog|article|insights|news|百科|知识/.test(text)) return "博客/文章";
+  return "其他";
+}
+
+function analyzeSerp(data) {
+  const results = data?.organicResults || [];
+  const types = results.reduce((acc, result) => {
+    const type = classifySerpResult(result);
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {});
+  const sortedTypes = Object.entries(types).sort((a, b) => b[1] - a[1]);
+  const dominantType = sortedTypes[0]?.[0] || "未知";
+  const domains = [...new Set(results.map(item => item.domain).filter(Boolean))];
+  const hasCommercial = Boolean(types["服务/商业页"]);
+  const hasForums = Boolean(types["社区/论坛"]);
+  const hasTools = Boolean(types["工具/模板"]);
+  const recommendedPageType = dominantType === "服务/商业页"
+    ? "服务页或商业型指南页"
+    : dominantType === "工具/模板"
+      ? "工具页/模板页 + 指南说明"
+      : dominantType === "列表/对比页"
+        ? "对比/清单型文章"
+        : "深度指南/教程型文章";
+
+  const gaps = [
+    "标题下第一段直接回答搜索问题，避免只写铺垫。",
+    "把竞品分散的信息整理成表格、步骤和 FAQ。",
+    hasCommercial ? "如果 SERP 已有商业页，页面里要明确价格、服务范围、案例和 CTA。" : "可以用商业调查段落承接后续咨询，不要让文章只停留在科普。",
+    hasForums ? "社区结果出现说明用户有真实疑问，建议增加经验型回答和避坑段落。" : "补充真实案例和作者经验，避免内容像通用百科。",
+    hasTools ? "如果工具页占位明显，考虑提供模板、Checklist 或可下载资源。" : "加入可下载清单或执行模板，提升可引用性。"
+  ];
+
+  return { types, sortedTypes, dominantType, domains, recommendedPageType, gaps };
+}
+
 function badge(value) {
   const className = value === "高" || value === "中高" ? "high" : value === "中" ? "medium" : "low";
   return `<span class="badge ${className}">${escapeHtml(value)}</span>`;
@@ -399,6 +445,114 @@ function renderPriority(plan) {
     escapeHtml(item.cta)
   ]);
   return `<div class="content-card"><h3>第一批优先内容</h3><p>这批内容优先考虑商业价值、痛点强度、可转化性和主题权威，不等同于真实搜索量排序。发布前仍建议用 Keyword Planner、Ahrefs、SEMrush 或 Search Console 校准。</p>${renderTable(["顺序", "关键词/标题", "Hub", "搜索意图", "页面类型", "商业价值", "CTA"], rows)}</div>`;
+}
+
+function renderSerp(plan) {
+  const query = escapeHtml(plan.input.keyword);
+  const market = escapeHtml(plan.input.market);
+
+  if (serpState === "loading") {
+    return `
+      <div class="content-card serp-hero">
+        <h3>SERP 分析</h3>
+        <p>正在分析「${query}」的 Google 搜索结果...</p>
+      </div>
+    `;
+  }
+
+  if (serpState === "error") {
+    return `
+      <div class="brief-block">
+        <div class="content-card serp-hero">
+          <h3>SERP 分析未启用</h3>
+          <p>${escapeHtml(serpMessage || "暂时无法获取 SERP 数据。")}</p>
+          <button id="runSerpAnalysis" class="primary-action compact-action" type="button"><span aria-hidden="true">↻</span>重新分析 SERP</button>
+        </div>
+        <div class="content-card">
+          <h3>配置方式</h3>
+          <ol class="brief-list">
+            <li>注册 SerpApi 并获取 API Key。</li>
+            <li>在 Vercel 项目 Settings -> Environment Variables 添加 <strong>SERPAPI_KEY</strong>。</li>
+            <li>重新部署项目，然后回到这里点击分析。</li>
+          </ol>
+        </div>
+      </div>
+    `;
+  }
+
+  if (!currentSerp || currentSerp.query !== plan.input.keyword || currentSerp.market !== plan.input.market) {
+    return `
+      <div class="brief-block">
+        <div class="content-card serp-hero">
+          <h3>SERP 竞争分析</h3>
+          <p>拉取「${query}」在 ${market} 下的 Google 前 10 结果，判断页面类型、PAA 问题和内容缺口。</p>
+          <button id="runSerpAnalysis" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>分析 SERP</button>
+        </div>
+        <div class="section-grid">
+          <div class="content-card">
+            <h3>会分析什么</h3>
+            <ul class="brief-list">
+              <li>前 10 排名页面标题、URL、摘要和域名。</li>
+              <li>SERP 页面类型分布：指南、服务页、工具页、论坛等。</li>
+              <li>People Also Ask 和相关搜索。</li>
+              <li>建议页面类型和内容缺口。</li>
+            </ul>
+          </div>
+          <div class="content-card">
+            <h3>数据来源</h3>
+            <p>当前版本通过后端 API 调用 SerpApi Google Search API，API Key 只保存在 Vercel 环境变量中。</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const analysis = analyzeSerp(currentSerp);
+  const resultRows = currentSerp.organicResults.map(result => [
+    String(result.position || ""),
+    escapeHtml(classifySerpResult(result)),
+    `<a href="${escapeHtml(result.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(result.title)}</a>`,
+    escapeHtml(result.domain),
+    escapeHtml(result.snippet)
+  ]);
+  const typeRows = analysis.sortedTypes.map(([type, count]) => [
+    escapeHtml(type),
+    String(count),
+    `${Math.round((count / Math.max(currentSerp.organicResults.length, 1)) * 100)}%`
+  ]);
+  const questionRows = currentSerp.relatedQuestions.map(item => [
+    escapeHtml(item.question),
+    escapeHtml(item.snippet || "SERP 未返回摘要")
+  ]);
+  const relatedRows = currentSerp.relatedSearches.map(item => [escapeHtml(item)]);
+
+  return `
+    <div class="brief-block">
+      <div class="grid-cards">
+        <div class="metric-card"><span>主导页面类型</span><strong>${escapeHtml(analysis.dominantType)}</strong></div>
+        <div class="metric-card"><span>建议页面类型</span><strong>${escapeHtml(analysis.recommendedPageType)}</strong></div>
+        <div class="metric-card"><span>竞争域名数</span><strong>${analysis.domains.length}</strong></div>
+      </div>
+      <div class="content-card serp-hero">
+        <h3>SERP 分析：${escapeHtml(currentSerp.query)}</h3>
+        <p>位置：${escapeHtml(currentSerp.location)}。${currentSerp.searchInformation.totalResults ? `估算结果数：${escapeHtml(currentSerp.searchInformation.totalResults)}。` : ""}</p>
+        <button id="runSerpAnalysis" class="ghost-button" type="button"><span aria-hidden="true">↻</span>刷新 SERP</button>
+      </div>
+      <div class="section-grid">
+        <div class="content-card">
+          <h3>页面类型分布</h3>
+          ${renderTable(["类型", "数量", "占比"], typeRows)}
+        </div>
+        <div class="content-card">
+          <h3>内容缺口建议</h3>
+          <ul class="brief-list">${analysis.gaps.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+      </div>
+      <div class="content-card"><h3>Google 前 10</h3>${renderTable(["排名", "类型", "标题", "域名", "摘要"], resultRows)}</div>
+      ${questionRows.length ? `<div class="content-card"><h3>People Also Ask</h3>${renderTable(["问题", "摘要"], questionRows)}</div>` : ""}
+      ${relatedRows.length ? `<div class="content-card"><h3>相关搜索</h3>${renderTable(["Query"], relatedRows)}</div>` : ""}
+    </div>
+  `;
 }
 
 function renderBrief(plan) {
@@ -549,6 +703,7 @@ function renderPlan() {
     hubs: renderHubs,
     spokes: renderSpokes,
     priority: renderPriority,
+    serp: renderSerp,
     brief: renderBrief,
     aeo: renderAeo,
     schema: renderSchema,
@@ -557,6 +712,38 @@ function renderPlan() {
   };
 
   tabContent.innerHTML = views[activeTab](currentPlan);
+  const runButton = document.querySelector("#runSerpAnalysis");
+  if (runButton) {
+    runButton.addEventListener("click", runSerpAnalysis);
+  }
+}
+
+async function runSerpAnalysis() {
+  if (!currentPlan || serpState === "loading") return;
+  serpState = "loading";
+  serpMessage = "";
+  renderPlan();
+
+  const params = new URLSearchParams({
+    q: currentPlan.input.keyword,
+    market: currentPlan.input.market
+  });
+
+  try {
+    const response = await fetch(`/api/serp?${params.toString()}`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.setup || data.error || "SERP request failed.");
+    }
+    currentSerp = data;
+    serpState = "ready";
+  } catch (error) {
+    currentSerp = null;
+    serpState = "error";
+    serpMessage = error.message;
+  }
+
+  renderPlan();
 }
 
 function toMarkdown(plan) {
@@ -636,6 +823,9 @@ form.addEventListener("submit", event => {
   const input = getFormData();
   if (!input.keyword) return;
   currentPlan = buildPlan(input);
+  currentSerp = null;
+  serpState = "idle";
+  serpMessage = "";
   localStorage.setItem("lastSeoPlan", JSON.stringify(currentPlan.input));
   renderPlan();
 });

@@ -268,6 +268,13 @@ select:focus {
   background: rgba(255, 255, 255, 0.16);
 }
 
+.compact-action {
+  width: fit-content;
+  min-width: 160px;
+  margin-top: 12px;
+  padding: 0 18px;
+}
+
 .side-note {
   margin-top: 18px;
   padding: 14px;
@@ -472,6 +479,16 @@ select:focus {
   line-height: 1.72;
 }
 
+.content-card a {
+  color: var(--blue);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.content-card a:hover {
+  text-decoration: underline;
+}
+
 .content-card p:last-child,
 .content-card ul:last-child,
 .content-card ol:last-child {
@@ -590,6 +607,10 @@ tr:last-child td {
   background: #fbfcfd;
   color: var(--muted);
   text-align: center;
+}
+
+.serp-hero {
+  background: linear-gradient(135deg, #ffffff, #f3fbfa);
 }
 
 @media (max-width: 1040px) {
