@@ -95,6 +95,48 @@
               </div>
             </label>
 
+            <details class="advanced-panel">
+              <summary>高级设置</summary>
+              <div class="advanced-grid">
+                <label class="field">
+                  <span>品牌名</span>
+                  <input id="brandName" name="brandName" type="text" placeholder="例如：未来增长实验室" />
+                </label>
+                <label class="field">
+                  <span>网站 URL</span>
+                  <input id="websiteUrl" name="websiteUrl" type="url" placeholder="https://example.com" />
+                </label>
+                <label class="field">
+                  <span>作者/专家</span>
+                  <input id="authorName" name="authorName" type="text" placeholder="例如：David，SEO 顾问" />
+                </label>
+                <label class="field">
+                  <span>核心 CTA</span>
+                  <input id="coreOffer" name="coreOffer" type="text" placeholder="例如：免费 SEO 诊断" />
+                </label>
+                <label class="field">
+                  <span>服务地区</span>
+                  <input id="region" name="region" type="text" placeholder="例如：中国 / 美国 / 全球" />
+                </label>
+                <label class="field">
+                  <span>案例/优势</span>
+                  <input id="proofPoints" name="proofPoints" type="text" placeholder="例如：10 年经验、50+ 案例、B2B 行业" />
+                </label>
+                <label class="field">
+                  <span>月搜索量</span>
+                  <input id="searchVolume" name="searchVolume" type="number" min="0" placeholder="可选，后续可接 API" />
+                </label>
+                <label class="field">
+                  <span>竞争度 0-100</span>
+                  <input id="difficulty" name="difficulty" type="number" min="0" max="100" placeholder="可选" />
+                </label>
+                <label class="field">
+                  <span>CPC</span>
+                  <input id="cpc" name="cpc" type="number" min="0" step="0.01" placeholder="可选" />
+                </label>
+              </div>
+            </details>
+
             <button class="primary-action" type="submit"><span aria-hidden="true">→</span>生成规划</button>
           </form>
 
@@ -133,11 +175,16 @@
             <button class="tab" data-tab="spokes" type="button">Spoke</button>
             <button class="tab" data-tab="priority" type="button">优先内容</button>
             <button class="tab" data-tab="serp" type="button">SERP</button>
+            <button class="tab" data-tab="dataIntent" type="button">数据/意图</button>
             <button class="tab" data-tab="brief" type="button">页面结构</button>
             <button class="tab" data-tab="aeo" type="button">AEO/GEO</button>
+            <button class="tab" data-tab="eeat" type="button">E-E-A-T</button>
             <button class="tab" data-tab="schema" type="button">Schema</button>
             <button class="tab" data-tab="links" type="button">内链</button>
             <button class="tab" data-tab="calendar" type="button">发布节奏</button>
+            <button class="tab" data-tab="assets" type="button">资产库</button>
+            <button class="tab" data-tab="score" type="button">评分</button>
+            <button class="tab" data-tab="workflow" type="button">工作流</button>
           </nav>
 
           <div id="tabContent" class="tab-content"></div>

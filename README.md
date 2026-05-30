@@ -10,8 +10,15 @@
 - Schema 建议
 - Hub-Spoke 内链方案
 - Markdown 复制和 CSV 下载
+- SERP 分析（需要 `SERPAPI_KEY`）
+- 关键词数据/搜索意图校准
+- 深度内容 Brief
+- E-E-A-T / GEO 可信度检查
+- 内容资产库和更新频率
+- 内容质量评分
+- 工作流导出建议
 
-当前版本使用规则模板生成，不依赖后端和 API。后续可以把 `app.js` 里的 `buildPlan` 生成逻辑替换为 OpenAI API 或自己的关键词数据库。
+当前版本的策略规划使用规则模板生成。SERP 分析通过 Vercel Serverless Function 调用 SerpApi；搜索量、竞争度、CPC 支持手填，后续可接 DataForSEO、Ahrefs、Semrush 或 Google Keyword Planner。
 
 ## SERP 分析
 

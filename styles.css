@@ -164,6 +164,30 @@ h3 {
   gap: 11px;
 }
 
+.advanced-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.advanced-panel summary {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  padding: 0 12px;
+  color: #334155;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+  padding: 0 12px 12px;
+}
+
 input,
 select {
   width: 100%;
@@ -613,6 +637,43 @@ tr:last-child td {
   background: linear-gradient(135deg, #ffffff, #f3fbfa);
 }
 
+.score-bar {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.score-bar span {
+  display: block;
+  height: 9px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+}
+
+.score-bar::before {
+  content: "";
+  grid-column: 1;
+  grid-row: 1;
+  height: 9px;
+  border-radius: 999px;
+  background: #e5ebf0;
+}
+
+.score-bar span {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.score-bar strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
 @media (max-width: 1040px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -647,6 +708,10 @@ tr:last-child td {
   }
 
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-grid {
     grid-template-columns: 1fr;
   }
 

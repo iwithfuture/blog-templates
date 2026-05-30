@@ -39,6 +39,10 @@ function slugify(value) {
 
 function getFormData() {
   const data = new FormData(form);
+  const numberOrNull = value => {
+    const number = Number(value);
+    return Number.isFinite(number) && value !== "" ? number : null;
+  };
   return {
     keyword: String(data.get("keyword") || "").trim(),
     market: String(data.get("market") || "中文市场"),
@@ -46,6 +50,15 @@ function getFormData() {
     audience: String(data.get("audience") || "").trim() || "目标用户",
     businessType: String(data.get("businessType") || "服务"),
     monetization: String(data.get("monetization") || "询盘"),
+    brandName: String(data.get("brandName") || "").trim() || "你的品牌",
+    websiteUrl: String(data.get("websiteUrl") || "").trim(),
+    authorName: String(data.get("authorName") || "").trim() || "作者/专家",
+    coreOffer: String(data.get("coreOffer") || "").trim() || "免费诊断/咨询",
+    region: String(data.get("region") || "").trim() || "目标市场",
+    proofPoints: String(data.get("proofPoints") || "").trim(),
+    searchVolume: numberOrNull(data.get("searchVolume")),
+    difficulty: numberOrNull(data.get("difficulty")),
+    cpc: numberOrNull(data.get("cpc")),
     depth: String(data.get("depth") || "标准版")
   };
 }
@@ -171,13 +184,42 @@ function buildBrief(input, priority) {
   const k = input.keyword;
   const title = focus.keyword;
   const problemLine = `${title}的核心不是只追求数量或表面动作，而是先确认目标、质量标准、执行流程和转化承接。`;
+  const proof = input.proofPoints || "真实案例、执行经验、数据截图或客户反馈";
 
   return {
     targetKeyword: title,
+    secondaryKeywords: [
+      `${k}流程`,
+      `${k}费用`,
+      `${k}案例`,
+      `${k}工具`,
+      `${k}常见问题`
+    ],
+    requiredEntities: [
+      "Google Search Console",
+      "关键词意图",
+      "内容质量",
+      "内链",
+      "Schema",
+      input.brandName
+    ],
+    wordCount: input.depth === "深度版" ? "2500-3500 字" : input.depth === "简版" ? "1200-1800 字" : "1800-2600 字",
+    tone: `专业、直接、面向${input.audience}，少讲概念，多给判断标准和执行动作。`,
+    sourceNeeds: [
+      "至少 2 个权威来源或官方文档",
+      "至少 1 个真实案例或匿名场景",
+      "价格/数据/平台规则类内容必须标注更新时间"
+    ],
+    avoid: [
+      "不要堆关键词",
+      "不要编造搜索量、案例数字或客户结果",
+      "不要把交易型关键词写成纯科普",
+      "不要在 FAQ 中重复正文已有小标题"
+    ],
     h1: `${title}：适合${input.audience}的完整方法和避坑指南`,
     metaTitle: `${title}｜流程、标准、费用与常见问题`,
     metaDescription: `本文围绕${title}，说明适合人群、执行流程、判断标准、常见错误、案例和FAQ，帮助${input.audience}制定可落地的${k}计划。`,
-    summary: `${problemLine} 如果你想通过${k}获得稳定的 Google 流量，需要把关键词意图、页面类型、内容质量、内链和持续更新放在同一套计划里。`,
+    summary: `${problemLine} 如果你想通过${k}获得稳定的 Google 流量，需要把关键词意图、页面类型、内容质量、内链和持续更新放在同一套计划里。${input.brandName}可以把这篇内容导向「${input.coreOffer}」。`,
     outline: [
       `H2：${title}的直接答案`,
       `H2：${k}是什么，为什么会影响 Google 流量`,
@@ -199,7 +241,7 @@ function buildBrief(input, priority) {
       "执行流程表：步骤、负责人、产出物、复盘指标",
       "费用/成本表：成本项、适合阶段、注意事项"
     ],
-    caseIdea: `用一个匿名案例说明${input.audience}在做${k}时遇到的问题、调整动作和结果。没有真实数字时只写过程，不编造数据。`
+    caseIdea: `用一个匿名案例说明${input.audience}在做${k}时遇到的问题、调整动作和结果。可信证明可以来自：${proof}。没有真实数字时只写过程，不编造数据。`
   };
 }
 
@@ -318,6 +360,146 @@ function buildPublishingCalendar(input, hubs, spokes, priority) {
   };
 }
 
+function buildDataIntent(input, spokes) {
+  const dataQuality = input.searchVolume === null && input.difficulty === null && input.cpc === null
+    ? "未接入真实关键词数据"
+    : "已录入部分关键词数据";
+  const opportunity = input.searchVolume === null
+    ? "待验证"
+    : input.difficulty !== null && input.difficulty >= 70
+      ? "高竞争，需要长周期和更强内容资产"
+      : input.searchVolume >= 500
+        ? "有明确搜索需求，适合优先验证"
+        : "搜索量可能较小，需依赖商业价值判断";
+
+  return {
+    keywordData: [
+      { metric: "月搜索量", value: input.searchVolume ?? "待接入/手填", note: "可来自 Google Keyword Planner、DataForSEO、Ahrefs、Semrush。" },
+      { metric: "竞争度", value: input.difficulty ?? "待接入/手填", note: "用于判断短期可排名性，不应单独决定是否写。" },
+      { metric: "CPC", value: input.cpc ?? "待接入/手填", note: "可辅助判断商业价值，尤其适合服务/询盘型业务。" },
+      { metric: "数据状态", value: dataQuality, note: opportunity }
+    ],
+    intentRows: spokes.slice(0, 12).map(item => ({
+      keyword: item.keyword,
+      hubOrSpoke: item.priority === "高" && item.businessValue === "高" ? "核心 Spoke / 可做独立落地页" : "Spoke",
+      intent: item.intent,
+      pageType: item.pageType,
+      confidence: item.intent === "交易转化" || item.intent === "商业调查" ? "高" : item.intent === "问题解决" ? "中高" : "中",
+      validation: "用 SERP 前 10 页面类型校准"
+    })),
+    decisionRules: [
+      "搜索量高但商业价值低：作为主题权威内容，不优先承接转化。",
+      "搜索量低但商业价值高：仍值得写，尤其适合服务页、价格页、案例页。",
+      "竞争度高：先写长尾 Spoke 和问题解决页，再冲 Hub。",
+      "SERP 多为服务页：你的页面也要有服务范围、价格线索、案例和 CTA。",
+      "SERP 多为教程页：先做深度指南，再用内链导向服务页。"
+    ]
+  };
+}
+
+function buildEeat(input) {
+  return {
+    identity: [
+      { item: "品牌实体", recommendation: `${input.brandName} 在首页、关于页、作者页、社媒资料中保持同一名称和定位。`, status: input.brandName === "你的品牌" ? "待补" : "已输入" },
+      { item: "作者身份", recommendation: `使用 ${input.authorName} 的作者页，说明经验、行业背景和可验证成果。`, status: input.authorName === "作者/专家" ? "待补" : "已输入" },
+      { item: "服务地区", recommendation: `在服务页和 Organization/Service Schema 中标明 ${input.region}。`, status: input.region === "目标市场" ? "待补" : "已输入" },
+      { item: "可信证明", recommendation: input.proofPoints || "补充案例、客户类型、数据截图、流程截图、评价或第三方提及。", status: input.proofPoints ? "已输入" : "待补" }
+    ],
+    checklist: [
+      "页面顶部显示作者和更新时间。",
+      "关键判断给出原因，不只给结论。",
+      "涉及费用、规则、工具和平台政策时写明更新时间。",
+      "案例没有真实数字时，只写过程和方法，不编造结果。",
+      "关于页说明品牌、团队、服务范围、联系方式和社媒账号。",
+      "在 YouTube、LinkedIn、知乎或行业平台建立一致的品牌提及。"
+    ],
+    geoActions: [
+      `让「${input.brandName}」和「${input.keyword}」在站内页面、作者页、社交资料和第三方内容中共同出现。`,
+      "把案例、模板、报告做成可被引用的内容资产。",
+      "发布第三方投稿、访谈、播客或行业回答，增加非链接品牌提及。",
+      "建立 sameAs 链接：LinkedIn、YouTube、X、知乎、公众号或行业目录。"
+    ]
+  };
+}
+
+function buildAssets(input, spokes, priority) {
+  const pool = [...priority, ...spokes.filter(item => !priority.some(priorityItem => priorityItem.keyword === item.keyword))];
+  return pool.slice(0, 16).map((item, index) => {
+    const updateFrequency = /费用|多少钱|价格|工具|数据|平台|规则/.test(item.keyword) ? "每季度" : item.businessValue === "高" ? "每季度" : "每半年";
+    const status = index < 4 ? "待写" : index < 10 ? "排期中" : "候选";
+    return {
+      keyword: item.keyword,
+      hub: item.hub,
+      pageType: item.pageType,
+      status,
+      owner: input.authorName,
+      publishWindow: index < 8 ? `第 ${Math.floor(index / 2) + 1} 周` : `第 ${Math.floor(index / 2) + 1} 周后`,
+      updateFrequency,
+      updateTrigger: "排名下降、CTR 低、规则变化、案例过期、SERP 页面类型变化",
+      conversion: item.cta
+    };
+  });
+}
+
+function buildQualityScore(input, planPieces) {
+  const hasData = input.searchVolume !== null || input.difficulty !== null || input.cpc !== null;
+  const hasBrand = input.brandName !== "你的品牌";
+  const hasAuthor = input.authorName !== "作者/专家";
+  const hasProof = Boolean(input.proofPoints);
+  const scores = [
+    { name: "SEO 完整度", score: 84, reason: "Hub、Spoke、内链、Schema 和发布节奏已覆盖。" },
+    { name: "AEO 友好度", score: 82, reason: "Brief 包含直接答案、步骤、表格、FAQ 和摘要。" },
+    { name: "GEO 可信度", score: 62 + (hasBrand ? 8 : 0) + (hasAuthor ? 8 : 0) + (hasProof ? 10 : 0), reason: "取决于品牌实体、作者身份、案例和第三方提及。" },
+    { name: "转化承接", score: 76 + (input.coreOffer !== "免费诊断/咨询" ? 8 : 0), reason: "已按 CTA 规划，但还需要真实落地页和表单数据验证。" },
+    { name: "数据可信度", score: hasData ? 72 : 45, reason: hasData ? "已录入部分关键词数据，但仍需 SERP/搜索量 API 校准。" : "未接入搜索量、难度、CPC 等真实关键词数据。" },
+    { name: "内容运营度", score: 86, reason: "已有发布日历、资产状态、更新频率和维护触发器。" }
+  ];
+  const average = Math.round(scores.reduce((sum, item) => sum + item.score, 0) / scores.length);
+  const fixes = [
+    hasData ? "继续用 API 批量校准关键词数据。" : "接入 DataForSEO/Ahrefs/Semrush 或手填搜索量、难度、CPC。",
+    hasBrand ? "保持品牌 sameAs 和第三方提及一致。" : "补充品牌名、官网、社媒和关于页信息。",
+    hasAuthor ? "完善作者页和专家经历。" : "补充作者/专家身份。",
+    hasProof ? "把案例证明放进正文和服务页。" : "补充真实案例、截图、评价或行业经验。",
+    "发布后接入 Search Console 数据，按 CTR、排名和转化更新资产库。"
+  ];
+  return { average, scores, fixes };
+}
+
+function buildWorkflow(input) {
+  return {
+    exports: [
+      { name: "Markdown Brief", status: "已支持", note: "用于交给作者、编辑或 AI 写作工具。" },
+      { name: "CSV 内容地图", status: "已支持", note: "用于 Google Sheets、Notion、Airtable 导入。" },
+      { name: "JSON-LD Schema", status: "可复制示例", note: "Schema Tab 已生成基础示例，后续可做一键复制。" },
+      { name: "WordPress 草稿", status: "未接", note: "需要 WordPress REST API 和站点应用密码。" },
+      { name: "Notion 数据库", status: "未接", note: "需要 Notion Integration Token 和数据库字段映射。" },
+      { name: "Google Sheets", status: "未接", note: "需要 Google OAuth 或服务账号。" }
+    ],
+    productionFlow: [
+      "策略：生成 Hub/Spoke、SERP、数据/意图。",
+      "Brief：确认页面类型、H2/H3、FAQ、表格、案例和 CTA。",
+      "写作：作者补充经验、数据、来源和截图。",
+      "编辑：检查事实、结构、重复、内链、Schema。",
+      "发布：提交索引，记录 URL、发布时间和负责人。",
+      "维护：4-8 周后检查 GSC 数据，进入更新队列。"
+    ],
+    requiredFields: [
+      "Keyword",
+      "Hub",
+      "URL",
+      "Page Type",
+      "Intent",
+      "Owner",
+      "Status",
+      "Publish Date",
+      "Update Frequency",
+      "CTA",
+      "Internal Links",
+      "Schema"
+    ]
+  };
+}
+
 function buildPlan(input) {
   const hubs = buildHubs(input);
   const spokes = buildSpokes(input, hubs);
@@ -327,7 +509,13 @@ function buildPlan(input) {
   const schema = buildSchema(input, brief);
   const links = buildLinks(hubs, spokes, priority);
   const calendar = buildPublishingCalendar(input, hubs, spokes, priority);
-  return { input, hubs, spokes, priority, brief, faq, schema, links, calendar };
+  const dataIntent = buildDataIntent(input, spokes);
+  const eeat = buildEeat(input);
+  const assets = buildAssets(input, spokes, priority);
+  const workflow = buildWorkflow(input);
+  const plan = { input, hubs, spokes, priority, brief, faq, schema, links, calendar, dataIntent, eeat, assets, workflow };
+  plan.quality = buildQualityScore(input, plan);
+  return plan;
 }
 
 function classifySerpResult(result) {
@@ -555,6 +743,39 @@ function renderSerp(plan) {
   `;
 }
 
+function renderDataIntent(plan) {
+  const dataRows = plan.dataIntent.keywordData.map(item => [
+    escapeHtml(item.metric),
+    escapeHtml(item.value),
+    escapeHtml(item.note)
+  ]);
+  const intentRows = plan.dataIntent.intentRows.map(item => [
+    escapeHtml(item.keyword),
+    escapeHtml(item.hubOrSpoke),
+    escapeHtml(item.intent),
+    escapeHtml(item.pageType),
+    badge(item.confidence),
+    escapeHtml(item.validation)
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="content-card">
+        <h3>关键词数据</h3>
+        <p>这里支持手填搜索量、竞争度和 CPC；真实批量数据仍需要接 DataForSEO、Ahrefs、Semrush 或 Google Keyword Planner。</p>
+        ${renderTable(["指标", "值", "说明"], dataRows)}
+      </div>
+      <div class="content-card">
+        <h3>搜索意图校准</h3>
+        ${renderTable(["关键词", "Hub/Spoke 判断", "搜索意图", "页面类型", "置信度", "验证方式"], intentRows)}
+      </div>
+      <div class="content-card">
+        <h3>决策规则</h3>
+        <ul class="brief-list">${plan.dataIntent.decisionRules.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+    </div>
+  `;
+}
+
 function renderBrief(plan) {
   const brief = plan.brief;
   return `
@@ -565,6 +786,8 @@ function renderBrief(plan) {
         <p><strong>Meta Title：</strong>${escapeHtml(brief.metaTitle)}</p>
         <p><strong>Meta Description：</strong>${escapeHtml(brief.metaDescription)}</p>
         <p><strong>AEO 开头摘要：</strong>${escapeHtml(brief.summary)}</p>
+        <p><strong>建议字数：</strong>${escapeHtml(brief.wordCount)}</p>
+        <p><strong>写作语气：</strong>${escapeHtml(brief.tone)}</p>
       </div>
       <div class="section-grid">
         <div class="content-card">
@@ -575,6 +798,18 @@ function renderBrief(plan) {
           <h3>表格和案例</h3>
           <ul class="brief-list">${brief.tableIdeas.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
           <p>${escapeHtml(brief.caseIdea)}</p>
+        </div>
+      </div>
+      <div class="section-grid">
+        <div class="content-card">
+          <h3>次级关键词和实体</h3>
+          <p><strong>次级关键词：</strong>${escapeHtml(brief.secondaryKeywords.join(" / "))}</p>
+          <p><strong>必须覆盖实体：</strong>${escapeHtml(brief.requiredEntities.join(" / "))}</p>
+        </div>
+        <div class="content-card">
+          <h3>来源和避免事项</h3>
+          <ul class="brief-list">${brief.sourceNeeds.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <ul class="brief-list">${brief.avoid.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
         </div>
       </div>
     </div>
@@ -603,6 +838,29 @@ function renderAeo(plan) {
   `;
 }
 
+function renderEeat(plan) {
+  const identityRows = plan.eeat.identity.map(item => [
+    escapeHtml(item.item),
+    badge(item.status === "已输入" ? "高" : "中"),
+    escapeHtml(item.recommendation)
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="content-card"><h3>品牌和作者可信度</h3>${renderTable(["项目", "状态", "建议"], identityRows)}</div>
+      <div class="section-grid">
+        <div class="content-card">
+          <h3>E-E-A-T 检查清单</h3>
+          <ul class="brief-list">${plan.eeat.checklist.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+        <div class="content-card">
+          <h3>GEO 品牌实体动作</h3>
+          <ul class="brief-list">${plan.eeat.geoActions.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderSchema(plan) {
   const rows = plan.schema.map(item => [
     escapeHtml(item.name),
@@ -614,8 +872,8 @@ function renderSchema(plan) {
     "@type": "BlogPosting",
     headline: plan.brief.h1,
     description: plan.brief.metaDescription,
-    author: { "@type": "Person", name: "作者名" },
-    publisher: { "@type": "Organization", name: "你的品牌名" },
+    author: { "@type": "Person", name: plan.input.authorName },
+    publisher: { "@type": "Organization", name: plan.input.brandName, url: plan.input.websiteUrl || undefined },
     datePublished: "2026-05-30",
     dateModified: "2026-05-30"
   };
@@ -691,6 +949,72 @@ function renderCalendar(plan) {
   `;
 }
 
+function renderAssets(plan) {
+  const rows = plan.assets.map(item => [
+    escapeHtml(item.keyword),
+    escapeHtml(item.hub),
+    escapeHtml(item.pageType),
+    escapeHtml(item.status),
+    escapeHtml(item.owner),
+    escapeHtml(item.publishWindow),
+    escapeHtml(item.updateFrequency),
+    escapeHtml(item.conversion),
+    escapeHtml(item.updateTrigger)
+  ]);
+  return `
+    <div class="content-card">
+      <h3>内容资产库</h3>
+      <p>这不是只用来“发新文章”的表，而是后续维护、更新、合并和转化优化的运营底表。</p>
+      ${renderTable(["关键词", "Hub", "页面类型", "状态", "负责人", "发布时间", "更新频率", "CTA", "更新触发器"], rows)}
+    </div>
+  `;
+}
+
+function renderScore(plan) {
+  const rows = plan.quality.scores.map(item => [
+    escapeHtml(item.name),
+    `<div class="score-bar" aria-label="${escapeHtml(item.name)} ${item.score}分"><span style="width: ${item.score}%"></span><strong>${item.score}</strong></div>`,
+    escapeHtml(item.reason)
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="grid-cards">
+        <div class="metric-card"><span>综合评分</span><strong>${plan.quality.average}/100</strong></div>
+        <div class="metric-card"><span>品牌</span><strong>${escapeHtml(plan.input.brandName)}</strong></div>
+        <div class="metric-card"><span>核心 CTA</span><strong>${escapeHtml(plan.input.coreOffer)}</strong></div>
+      </div>
+      <div class="content-card"><h3>质量评分</h3>${renderTable(["维度", "分数", "原因"], rows)}</div>
+      <div class="content-card">
+        <h3>优先修复</h3>
+        <ul class="brief-list">${plan.quality.fixes.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+    </div>
+  `;
+}
+
+function renderWorkflow(plan) {
+  const exportRows = plan.workflow.exports.map(item => [
+    escapeHtml(item.name),
+    escapeHtml(item.status),
+    escapeHtml(item.note)
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="content-card"><h3>导出和集成</h3>${renderTable(["工作流", "状态", "说明"], exportRows)}</div>
+      <div class="section-grid">
+        <div class="content-card">
+          <h3>生产流程</h3>
+          <ol class="brief-list">${plan.workflow.productionFlow.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ol>
+        </div>
+        <div class="content-card">
+          <h3>推荐内容表字段</h3>
+          <ul class="brief-list">${plan.workflow.requiredFields.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderPlan() {
   if (!currentPlan) {
     tabContent.innerHTML = `<div class="empty-state">输入核心词后生成内容规划</div>`;
@@ -704,14 +1028,19 @@ function renderPlan() {
     spokes: renderSpokes,
     priority: renderPriority,
     serp: renderSerp,
+    dataIntent: renderDataIntent,
     brief: renderBrief,
     aeo: renderAeo,
+    eeat: renderEeat,
     schema: renderSchema,
     links: renderLinks,
-    calendar: renderCalendar
+    calendar: renderCalendar,
+    assets: renderAssets,
+    score: renderScore,
+    workflow: renderWorkflow
   };
 
-  tabContent.innerHTML = views[activeTab](currentPlan);
+  tabContent.innerHTML = (views[activeTab] || renderHubs)(currentPlan);
   const runButton = document.querySelector("#runSerpAnalysis");
   if (runButton) {
     runButton.addEventListener("click", runSerpAnalysis);
@@ -754,6 +1083,12 @@ function toMarkdown(plan) {
   lines.push(`- 目标用户：${plan.input.audience}`);
   lines.push(`- 业务类型：${plan.input.businessType}`);
   lines.push(`- 变现方式：${plan.input.monetization}`);
+  lines.push(`- 品牌名：${plan.input.brandName}`);
+  lines.push(`- 作者/专家：${plan.input.authorName}`);
+  lines.push(`- 核心 CTA：${plan.input.coreOffer}`);
+  lines.push("");
+  lines.push("## 数据/意图");
+  plan.dataIntent.keywordData.forEach(item => lines.push(`- ${item.metric}：${item.value}，${item.note}`));
   lines.push("");
   lines.push("## Hub 规划");
   plan.hubs.forEach(hub => {
@@ -777,6 +1112,9 @@ function toMarkdown(plan) {
   lines.push(`- Meta Title：${plan.brief.metaTitle}`);
   lines.push(`- Meta Description：${plan.brief.metaDescription}`);
   lines.push(`- AEO 摘要：${plan.brief.summary}`);
+  lines.push(`- 建议字数：${plan.brief.wordCount}`);
+  lines.push(`- 次级关键词：${plan.brief.secondaryKeywords.join(" / ")}`);
+  lines.push(`- 必须覆盖实体：${plan.brief.requiredEntities.join(" / ")}`);
   plan.brief.outline.forEach(item => lines.push(`- ${item}`));
   lines.push("");
   lines.push("## FAQ");
@@ -784,6 +1122,18 @@ function toMarkdown(plan) {
   lines.push("");
   lines.push("## Schema");
   plan.schema.forEach(item => lines.push(`- ${item.name}：${item.level}，${item.use}`));
+  lines.push("");
+  lines.push("## E-E-A-T");
+  plan.eeat.checklist.forEach(item => lines.push(`- ${item}`));
+  lines.push("");
+  lines.push("## 内容资产库");
+  lines.push("| 关键词 | Hub | 页面类型 | 状态 | 更新频率 | CTA |");
+  lines.push("|---|---|---|---|---|---|");
+  plan.assets.forEach(item => lines.push(`| ${item.keyword} | ${item.hub} | ${item.pageType} | ${item.status} | ${item.updateFrequency} | ${item.conversion} |`));
+  lines.push("");
+  lines.push("## 质量评分");
+  lines.push(`- 综合评分：${plan.quality.average}/100`);
+  plan.quality.scores.forEach(item => lines.push(`- ${item.name}：${item.score}/100，${item.reason}`));
   lines.push("");
   lines.push("## News Website Bonus 发布节奏");
   lines.push(`- 建议节奏：${plan.calendar.cadence}`);
