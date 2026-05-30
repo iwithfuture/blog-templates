@@ -243,6 +243,78 @@ function buildLinks(hubs, spokes, priority) {
   };
 }
 
+function buildPublishingCalendar(input, hubs, spokes, priority) {
+  const weekCount = input.depth === "深度版" ? 24 : input.depth === "简版" ? 16 : 20;
+  const contentPool = [
+    ...priority,
+    ...spokes.filter(item => !priority.some(priorityItem => priorityItem.keyword === item.keyword))
+  ];
+  const phases = [
+    "基础权威",
+    "痛点解决",
+    "商业决策",
+    "工具模板",
+    "案例信任",
+    "更新扩展"
+  ];
+  const weeks = Array.from({ length: weekCount }, (_, index) => {
+    const first = contentPool[(index * 2) % contentPool.length];
+    const second = contentPool[(index * 2 + 1) % contentPool.length];
+    const phase = phases[Math.min(Math.floor(index / 4), phases.length - 1)];
+    return {
+      week: `第 ${index + 1} 周`,
+      phase,
+      articleA: first.keyword,
+      articleB: second.keyword,
+      hubFocus: first.hub === second.hub ? first.hub : `${first.hub} / ${second.hub}`,
+      action: index < 4
+        ? "先覆盖核心问题和高商业意图页面，建立主题入口。"
+        : index < 8
+          ? "补充教程、问题解决和对比内容，强化 Hub 内链。"
+          : index < 12
+            ? "加入价格、服务、案例和 CTA，提升转化承接。"
+            : index < 16
+              ? "发布模板、清单和工具页，增加可引用资产。"
+              : index < 20
+                ? "复盘 Search Console 数据，更新有展现但点击低的页面。"
+                : "扩展长尾问题，合并低价值页面，刷新高价值内容。"
+    };
+  });
+
+  return {
+    cadence: "每周 2 篇，连续 4-6 个月",
+    minimumWeeks: 16,
+    recommendedWeeks: weekCount,
+    weeklyOutput: 2,
+    goal: `让网站在「${input.keyword}」主题下持续表现为一个能稳定回答用户问题的行业资源。`,
+    rules: [
+      "每篇内容必须对应一个明确搜索意图，不为了凑数量发布弱内容。",
+      "每周至少 1 篇链接到核心服务页或转化页。",
+      "每篇新内容至少链接 1 个 Hub 和 2 个相关 Spoke。",
+      "第 8 周开始复查已发布页面的标题、摘要、FAQ 和 CTA。",
+      "第 12 周开始用 Search Console 数据调整后续选题顺序。",
+      "价格、规则、工具、平台政策类页面至少每季度更新一次。"
+    ],
+    team: [
+      "SEO 策略：确定关键词、搜索意图、页面类型和内链。",
+      "作者/专家：提供真实经验、案例、判断标准和行业语境。",
+      "编辑：统一结构、标题、FAQ、CTA 和事实校验。",
+      "设计/运营：制作表格、清单、图片、模板和下载资产。",
+      "技术：保证速度、移动端、索引、Schema 和站点健康。"
+    ],
+    weeks,
+    hubCoverage: hubs.map(hub => {
+      const related = spokes.filter(item => item.hub === hub.name);
+      return {
+        hub: hub.name,
+        target: related.length,
+        firstMonth: related.slice(0, 3).map(item => item.keyword).join(" / "),
+        role: hub.intent.includes("交易") ? "承接转化" : hub.intent.includes("工具") ? "获得引用和线索" : "建立主题权威"
+      };
+    })
+  };
+}
+
 function buildPlan(input) {
   const hubs = buildHubs(input);
   const spokes = buildSpokes(input, hubs);
@@ -251,7 +323,8 @@ function buildPlan(input) {
   const faq = buildFaq(input, brief);
   const schema = buildSchema(input, brief);
   const links = buildLinks(hubs, spokes, priority);
-  return { input, hubs, spokes, priority, brief, faq, schema, links };
+  const calendar = buildPublishingCalendar(input, hubs, spokes, priority);
+  return { input, hubs, spokes, priority, brief, faq, schema, links, calendar };
 }
 
 function badge(value) {
@@ -422,6 +495,48 @@ function renderLinks(plan) {
   `;
 }
 
+function renderCalendar(plan) {
+  const rows = plan.calendar.weeks.map(item => [
+    escapeHtml(item.week),
+    escapeHtml(item.phase),
+    escapeHtml(item.articleA),
+    escapeHtml(item.articleB),
+    escapeHtml(item.hubFocus),
+    escapeHtml(item.action)
+  ]);
+  const coverageRows = plan.calendar.hubCoverage.map(item => [
+    escapeHtml(item.hub),
+    escapeHtml(item.role),
+    String(item.target),
+    escapeHtml(item.firstMonth || "后续补充")
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="grid-cards">
+        <div class="metric-card"><span>建议节奏</span><strong>${escapeHtml(plan.calendar.cadence)}</strong></div>
+        <div class="metric-card"><span>规划周期</span><strong>${plan.calendar.recommendedWeeks} 周</strong></div>
+        <div class="metric-card"><span>周发布量</span><strong>${plan.calendar.weeklyOutput} 篇</strong></div>
+      </div>
+      <div class="content-card">
+        <h3>News Website Bonus 目标</h3>
+        <p>${escapeHtml(plan.calendar.goal)}</p>
+      </div>
+      <div class="section-grid">
+        <div class="content-card">
+          <h3>执行规则</h3>
+          <ul class="brief-list">${plan.calendar.rules.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+        <div class="content-card">
+          <h3>团队分工</h3>
+          <ul class="brief-list">${plan.calendar.team.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+      </div>
+      <div class="content-card"><h3>Hub 覆盖计划</h3>${renderTable(["Hub", "角色", "候选 Spoke 数", "首月优先覆盖"], coverageRows)}</div>
+      <div class="content-card"><h3>4-6 个月发布日历</h3>${renderTable(["周次", "阶段", "文章 A", "文章 B", "Hub 重点", "执行重点"], rows)}</div>
+    </div>
+  `;
+}
+
 function renderPlan() {
   if (!currentPlan) {
     tabContent.innerHTML = `<div class="empty-state">输入核心词后生成内容规划</div>`;
@@ -437,7 +552,8 @@ function renderPlan() {
     brief: renderBrief,
     aeo: renderAeo,
     schema: renderSchema,
-    links: renderLinks
+    links: renderLinks,
+    calendar: renderCalendar
   };
 
   tabContent.innerHTML = views[activeTab](currentPlan);
@@ -481,6 +597,17 @@ function toMarkdown(plan) {
   lines.push("");
   lines.push("## Schema");
   plan.schema.forEach(item => lines.push(`- ${item.name}：${item.level}，${item.use}`));
+  lines.push("");
+  lines.push("## News Website Bonus 发布节奏");
+  lines.push(`- 建议节奏：${plan.calendar.cadence}`);
+  lines.push(`- 规划周期：${plan.calendar.recommendedWeeks} 周`);
+  lines.push(`- 目标：${plan.calendar.goal}`);
+  lines.push("");
+  lines.push("| 周次 | 阶段 | 文章 A | 文章 B | Hub 重点 |");
+  lines.push("|---|---|---|---|---|");
+  plan.calendar.weeks.forEach(item => {
+    lines.push(`| ${item.week} | ${item.phase} | ${item.articleA} | ${item.articleB} | ${item.hubFocus} |`);
+  });
   return lines.join("\n");
 }
 
