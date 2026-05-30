@@ -1157,15 +1157,67 @@ function toCsv(plan) {
 }
 
 function downloadFile(filename, content, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  const safeContent = type.includes("csv") ? `\uFEFF${content}` : content;
+  try {
+    const blob = new Blob([safeContent], { type });
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch {
+    const dataUrl = `data:${type},${encodeURIComponent(safeContent)}`;
+    link.href = dataUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return true;
+  }
+}
+
+function showToast(message, tone = "success") {
+  const existing = document.querySelector(".toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${tone}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add("is-visible"));
+  setTimeout(() => {
+    toast.classList.remove("is-visible");
+    setTimeout(() => toast.remove(), 180);
+  }, 2400);
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the textarea fallback for embedded browsers.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-9999px";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+  const ok = document.execCommand("copy");
+  textarea.remove();
+  return ok;
 }
 
 form.addEventListener("submit", event => {
@@ -1189,17 +1241,31 @@ tabs.forEach(tab => {
 });
 
 copyButton.addEventListener("click", async () => {
-  if (!currentPlan) return;
-  await navigator.clipboard.writeText(toMarkdown(currentPlan));
-  copyButton.textContent = "已复制";
-  setTimeout(() => {
-    copyButton.innerHTML = `<span aria-hidden="true">⧉</span>复制 Markdown`;
-  }, 1400);
+  if (!currentPlan) {
+    showToast("请先生成规划", "warning");
+    return;
+  }
+
+  const copied = await copyText(toMarkdown(currentPlan));
+  if (copied) {
+    copyButton.textContent = "已复制";
+    showToast("Markdown 已复制，可以粘贴到文档里");
+    setTimeout(() => {
+      copyButton.innerHTML = `<span aria-hidden="true">⧉</span>复制 Markdown`;
+    }, 1400);
+  } else {
+    showToast("当前浏览器禁止自动复制，请换浏览器或手动选择内容", "warning");
+  }
 });
 
 csvButton.addEventListener("click", () => {
-  if (!currentPlan) return;
+  if (!currentPlan) {
+    showToast("请先生成规划", "warning");
+    return;
+  }
+
   downloadFile(`${currentPlan.input.keyword}-content-plan.csv`, toCsv(currentPlan), "text/csv;charset=utf-8");
+  showToast("CSV 已生成，浏览器会开始下载");
 });
 
 function restoreLastInput() {
