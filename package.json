@@ -1,0 +1,9 @@
+{
+  "name": "blog-templates",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "npx serve .",
+    "check": "node --check app.js"
+  }
+}

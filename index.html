@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SEO/AEO/GEO 内容规划工具</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <aside class="input-panel" aria-label="输入设置">
+          <div class="brand-row">
+            <div>
+              <p class="eyebrow">Content Strategy Builder</p>
+              <h1>SEO/AEO/GEO 内容规划工具</h1>
+            </div>
+          </div>
+
+          <form id="plannerForm" class="form-stack">
+            <label class="field">
+              <span>核心词</span>
+              <input id="keyword" name="keyword" type="text" value="外链" placeholder="例如：外链、阿里国际站、Shopify SEO" required />
+            </label>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>目标市场</span>
+                <select id="market" name="market">
+                  <option>中文市场</option>
+                  <option>英文市场</option>
+                  <option>全球市场</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>网站阶段</span>
+                <select id="stage" name="stage">
+                  <option>新站</option>
+                  <option>已有内容</option>
+                  <option>已有流量</option>
+                  <option>已有客户案例</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>目标用户</span>
+              <input id="audience" name="audience" type="text" value="B2B 企业和外贸企业" placeholder="例如：外贸老板、SEO 从业者、SaaS 创始人" />
+            </label>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>业务类型</span>
+                <select id="businessType" name="businessType">
+                  <option>服务</option>
+                  <option>咨询</option>
+                  <option>课程</option>
+                  <option>工具站</option>
+                  <option>内容站</option>
+                  <option>SaaS</option>
+                  <option>电商</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>变现方式</span>
+                <select id="monetization" name="monetization">
+                  <option>询盘</option>
+                  <option>咨询</option>
+                  <option>注册</option>
+                  <option>购买</option>
+                  <option>资料下载</option>
+                  <option>广告</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>内容深度</span>
+              <div class="segmented" role="radiogroup" aria-label="内容深度">
+                <label>
+                  <input type="radio" name="depth" value="简版" />
+                  <span>简版</span>
+                </label>
+                <label>
+                  <input type="radio" name="depth" value="标准版" checked />
+                  <span>标准版</span>
+                </label>
+                <label>
+                  <input type="radio" name="depth" value="深度版" />
+                  <span>深度版</span>
+                </label>
+              </div>
+            </label>
+
+            <button class="primary-action" type="submit">生成规划</button>
+          </form>
+
+          <div class="side-note">
+            <strong>生成逻辑</strong>
+            <p>先判断 Hub，再拆 Spoke，最后输出页面结构、FAQ、Schema 和内链建议。适合先做内容地图，再查真实搜索量校准。</p>
+          </div>
+        </aside>
+
+        <section class="output-panel" aria-live="polite">
+          <div class="output-toolbar">
+            <div>
+              <p class="eyebrow">Generated Plan</p>
+              <h2 id="resultTitle">外链 内容规划</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button id="copyMarkdown" class="ghost-button" type="button">复制 Markdown</button>
+              <button id="downloadCsv" class="ghost-button" type="button">下载 CSV</button>
+            </div>
+          </div>
+
+          <nav class="tabs" aria-label="结果分类">
+            <button class="tab is-active" data-tab="hubs" type="button">Hub</button>
+            <button class="tab" data-tab="spokes" type="button">Spoke</button>
+            <button class="tab" data-tab="priority" type="button">优先内容</button>
+            <button class="tab" data-tab="brief" type="button">页面结构</button>
+            <button class="tab" data-tab="aeo" type="button">AEO/GEO</button>
+            <button class="tab" data-tab="schema" type="button">Schema</button>
+            <button class="tab" data-tab="links" type="button">内链</button>
+          </nav>
+
+          <div id="tabContent" class="tab-content"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
