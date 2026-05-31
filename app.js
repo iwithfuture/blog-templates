@@ -764,6 +764,11 @@ function briefButton(keyword) {
   return `<button class="inline-action" type="button" data-brief-keyword="${escapeHtml(keyword)}">生成 Brief</button>`;
 }
 
+function addSpokeButton(keyword, use) {
+  if (use.includes("FAQ") && !use.includes("Spoke")) return "";
+  return `<button class="inline-action secondary" type="button" data-add-spoke="${escapeHtml(keyword)}">加入 Spoke</button>`;
+}
+
 function selectBrief(keyword) {
   if (!currentPlan) return;
   selectedBriefKeyword = keyword;
@@ -774,6 +779,25 @@ function selectBrief(keyword) {
   tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
   renderPlan();
   showToast(`已切换到「${keyword}」的页面结构`);
+}
+
+function addKeywordToSpokes(keyword) {
+  if (!currentPlan) return;
+  if (currentPlan.spokes.some(item => item.keyword === keyword)) {
+    showToast("这个关键词已经在 Spoke 里了", "warning");
+    return;
+  }
+  const hub = currentPlan.hubs[1] || currentPlan.hubs[0];
+  const classified = classifyExpandedKeyword(keyword, "Manual", currentPlan.input.keyword);
+  const intent = classified.pageType.includes("服务") || classified.pageType.includes("价格") ? "商业调查" : classified.use.includes("FAQ") ? "问题解决" : "教程执行";
+  const businessValue = classified.priority === "高" ? "高" : classified.priority === "中高" ? "中高" : "中";
+  const newItem = makeSpoke(hub, keyword, intent, businessValue, classified.priority === "高" ? "高" : "中", currentPlan.input.coreOffer);
+  currentPlan.spokes = [newItem, ...currentPlan.spokes];
+  currentPlan.priority = rankSpokes(currentPlan.spokes);
+  currentPlan.dataIntent = buildDataIntent(currentPlan.input, currentPlan.spokes);
+  currentPlan.assets = buildAssets(currentPlan.input, currentPlan.spokes, currentPlan.priority);
+  showToast(`已加入 Spoke：${keyword}`);
+  renderPlan();
 }
 
 function renderHubs(plan) {
@@ -992,7 +1016,7 @@ function renderExpansion(plan) {
     escapeHtml(item.use),
     escapeHtml(item.pageType),
     badge(item.priority),
-    briefButton(item.keyword)
+    `<div class="inline-actions">${addSpokeButton(item.keyword, item.use)}${briefButton(item.keyword)}</div>`
   ]);
   const hubCount = candidates.filter(item => item.use.includes("Hub")).length;
   const spokeCount = candidates.filter(item => item.use.includes("Spoke")).length;
@@ -1150,7 +1174,7 @@ function renderArticle(plan) {
           <button id="generateArticle" class="ghost-button" type="button"><span aria-hidden="true">↻</span>重新生成</button>
         </div>
       </div>
-      <pre class="article-preview">${escapeHtml(currentArticle.article)}</pre>
+      <textarea id="articleEditor" class="article-preview article-editor" spellcheck="false">${escapeHtml(currentArticle.article)}</textarea>
     </div>
   `;
 }
@@ -1513,7 +1537,10 @@ function renderPlan() {
   if (copyArticleButton) {
     copyArticleButton.addEventListener("click", async () => {
       if (!currentArticle?.article) return;
-      const copied = await copyText(currentArticle.article);
+      const editor = document.querySelector("#articleEditor");
+      const articleText = editor?.value || currentArticle.article;
+      currentArticle.article = articleText;
+      const copied = await copyText(articleText);
       showToast(copied ? "文章已复制" : "当前浏览器禁止自动复制", copied ? "success" : "warning");
     });
   }
@@ -1521,7 +1548,10 @@ function renderPlan() {
   if (downloadArticleButton) {
     downloadArticleButton.addEventListener("click", () => {
       if (!currentArticle?.article) return;
-      downloadFile(`${currentArticle.keyword}-article.md`, currentArticle.article, "text/markdown;charset=utf-8");
+      const editor = document.querySelector("#articleEditor");
+      const articleText = editor?.value || currentArticle.article;
+      currentArticle.article = articleText;
+      downloadFile(`${currentArticle.keyword}-article.md`, articleText, "text/markdown;charset=utf-8");
       showToast("Markdown 已生成，浏览器会开始下载");
     });
   }
@@ -1531,6 +1561,9 @@ function renderPlan() {
   }
   document.querySelectorAll("[data-load-project]").forEach(button => {
     button.addEventListener("click", () => loadProject(Number(button.dataset.loadProject)));
+  });
+  document.querySelectorAll("[data-add-spoke]").forEach(button => {
+    button.addEventListener("click", () => addKeywordToSpokes(button.dataset.addSpoke));
   });
   const copyReportButton = document.querySelector("#copyReport");
   if (copyReportButton) {

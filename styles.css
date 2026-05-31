@@ -413,14 +413,47 @@ select:focus {
   background: #d7eeeb;
 }
 
-.tabs {
+.inline-action.secondary {
+  background: #fff;
+  color: #334155;
+}
+
+.inline-actions {
   display: flex;
-  gap: 7px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 10px;
   overflow-x: auto;
-  padding: 6px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #f7f9fb;
+}
+
+.tab-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(219, 227, 234, 0.78);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.tab-group > span {
+  flex: 1 0 100%;
+  color: var(--muted-2);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .tabs::-webkit-scrollbar,
@@ -655,6 +688,18 @@ tr:last-child td {
   line-height: 1.75;
 }
 
+.article-editor {
+  width: 100%;
+  min-height: 560px;
+  resize: vertical;
+  outline: none;
+}
+
+.article-editor:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+}
+
 .article-actions {
   justify-content: flex-start;
   margin-top: 12px;
@@ -780,6 +825,10 @@ tr:last-child td {
   }
 
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs {
     grid-template-columns: 1fr;
   }
 

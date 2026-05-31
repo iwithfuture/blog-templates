@@ -171,27 +171,39 @@
           </div>
 
           <nav class="tabs" aria-label="结果分类">
-            <button class="tab is-active" data-tab="hubs" type="button">Hub</button>
-            <button class="tab" data-tab="spokes" type="button">Spoke</button>
-            <button class="tab" data-tab="priority" type="button">优先内容</button>
-            <button class="tab" data-tab="serp" type="button">SERP</button>
-            <button class="tab" data-tab="expansion" type="button">关键词扩展</button>
-            <button class="tab" data-tab="dataIntent" type="button">数据/意图</button>
-            <button class="tab" data-tab="brief" type="button">页面结构</button>
-            <button class="tab" data-tab="article" type="button">文章初稿</button>
-            <button class="tab" data-tab="aeo" type="button">AEO/GEO</button>
-            <button class="tab" data-tab="eeat" type="button">E-E-A-T</button>
-            <button class="tab" data-tab="schema" type="button">Schema</button>
-            <button class="tab" data-tab="links" type="button">内链</button>
-            <button class="tab" data-tab="calendar" type="button">发布节奏</button>
-            <button class="tab" data-tab="assets" type="button">资产库</button>
-            <button class="tab" data-tab="score" type="button">评分</button>
-            <button class="tab" data-tab="workflow" type="button">工作流</button>
-            <button class="tab" data-tab="projects" type="button">客户项目</button>
-            <button class="tab" data-tab="landing" type="button">落地页</button>
-            <button class="tab" data-tab="audit" type="button">SEO审计</button>
-            <button class="tab" data-tab="gap" type="button">竞品差距</button>
-            <button class="tab" data-tab="report" type="button">客户报告</button>
+            <div class="tab-group">
+              <span>策略</span>
+              <button class="tab is-active" data-tab="hubs" type="button">Hub</button>
+              <button class="tab" data-tab="spokes" type="button">Spoke</button>
+              <button class="tab" data-tab="priority" type="button">优先内容</button>
+              <button class="tab" data-tab="serp" type="button">SERP</button>
+              <button class="tab" data-tab="expansion" type="button">关键词扩展</button>
+              <button class="tab" data-tab="dataIntent" type="button">数据/意图</button>
+            </div>
+            <div class="tab-group">
+              <span>生产</span>
+              <button class="tab" data-tab="brief" type="button">页面结构</button>
+              <button class="tab" data-tab="article" type="button">文章初稿</button>
+              <button class="tab" data-tab="aeo" type="button">AEO/GEO</button>
+              <button class="tab" data-tab="eeat" type="button">E-E-A-T</button>
+              <button class="tab" data-tab="schema" type="button">Schema</button>
+            </div>
+            <div class="tab-group">
+              <span>运营</span>
+              <button class="tab" data-tab="links" type="button">内链</button>
+              <button class="tab" data-tab="calendar" type="button">发布节奏</button>
+              <button class="tab" data-tab="assets" type="button">资产库</button>
+              <button class="tab" data-tab="score" type="button">评分</button>
+              <button class="tab" data-tab="workflow" type="button">工作流</button>
+            </div>
+            <div class="tab-group">
+              <span>交付</span>
+              <button class="tab" data-tab="projects" type="button">客户项目</button>
+              <button class="tab" data-tab="landing" type="button">落地页</button>
+              <button class="tab" data-tab="audit" type="button">SEO审计</button>
+              <button class="tab" data-tab="gap" type="button">竞品差距</button>
+              <button class="tab" data-tab="report" type="button">客户报告</button>
+            </div>
           </nav>
 
           <div id="tabContent" class="tab-content"></div>
