@@ -10,6 +10,9 @@ let currentPlan = null;
 let currentSerp = null;
 let serpState = "idle";
 let serpMessage = "";
+let currentExpansion = null;
+let expansionState = "idle";
+let expansionMessage = "";
 
 const pageTypeByIntent = {
   "定义认知": "百科/指南页",
@@ -561,6 +564,71 @@ function analyzeSerp(data) {
   return { types, sortedTypes, dominantType, domains, recommendedPageType, gaps };
 }
 
+function normalizeKeyword(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function classifyExpandedKeyword(keyword, source, rootKeyword) {
+  const text = normalizeKeyword(keyword);
+  const lower = text.toLowerCase();
+  const isQuestion = /怎么|如何|为什么|怎么办|多少钱|哪家|靠谱吗|是什么|区别|适合|多久|how|what|why|cost|price|best|vs/.test(lower);
+  const commercial = /代运营|服务|公司|报价|费用|多少钱|价格|顾问|咨询|agency|service|pricing|quote|company/.test(lower);
+  const broadTopic = /运营|推广|p4p|开店|费用|代运营|询盘|关键词|广告|工具|模板|策略/.test(lower);
+  const isRoot = text === rootKeyword;
+
+  if (source === "People Also Ask" || isQuestion) {
+    return {
+      use: commercial ? "Spoke / FAQ" : "FAQ / H2",
+      pageType: commercial ? "商业调查页 / FAQ" : "问题型段落 / FAQ",
+      priority: commercial ? "高" : "中"
+    };
+  }
+
+  if (!isRoot && broadTopic && text.length <= rootKeyword.length + 8 && !/多少钱|怎么办|怎么|如何|哪家|靠谱吗/.test(lower)) {
+    return {
+      use: "候选 Hub",
+      pageType: "二级 Hub / 主题入口页",
+      priority: commercial ? "高" : "中高"
+    };
+  }
+
+  return {
+    use: "Spoke",
+    pageType: commercial ? "服务/价格/决策页" : "教程/指南页",
+    priority: commercial ? "高" : "中"
+  };
+}
+
+function buildExpansionCandidates(plan) {
+  const rows = [];
+  const seen = new Set();
+  const add = (keyword, source) => {
+    const normalized = normalizeKeyword(keyword);
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    const classified = classifyExpandedKeyword(normalized, source, plan.input.keyword);
+    rows.push({
+      keyword: normalized,
+      source,
+      ...classified
+    });
+  };
+
+  if (currentExpansion?.suggestions) {
+    currentExpansion.suggestions.forEach(item => add(item, "Autocomplete"));
+  }
+
+  if (currentSerp?.relatedSearches) {
+    currentSerp.relatedSearches.forEach(item => add(item, "Related Searches"));
+  }
+
+  if (currentSerp?.relatedQuestions) {
+    currentSerp.relatedQuestions.forEach(item => add(item.question, "People Also Ask"));
+  }
+
+  return rows;
+}
+
 function badge(value) {
   const className = value === "高" || value === "中高" ? "high" : value === "中" ? "medium" : "low";
   return `<span class="badge ${className}">${escapeHtml(value)}</span>`;
@@ -739,6 +807,92 @@ function renderSerp(plan) {
       <div class="content-card"><h3>Google 前 10</h3>${renderTable(["排名", "类型", "标题", "域名", "摘要"], resultRows)}</div>
       ${questionRows.length ? `<div class="content-card"><h3>People Also Ask</h3>${renderTable(["问题", "摘要"], questionRows)}</div>` : ""}
       ${relatedRows.length ? `<div class="content-card"><h3>相关搜索</h3>${renderTable(["Query"], relatedRows)}</div>` : ""}
+    </div>
+  `;
+}
+
+function renderExpansion(plan) {
+  if (expansionState === "loading") {
+    return `
+      <div class="content-card serp-hero">
+        <h3>关键词扩展</h3>
+        <p>正在拉取「${escapeHtml(plan.input.keyword)}」的 Google Autocomplete 下拉词...</p>
+      </div>
+    `;
+  }
+
+  if (expansionState === "error") {
+    return `
+      <div class="brief-block">
+        <div class="content-card serp-hero">
+          <h3>关键词扩展未启用</h3>
+          <p>${escapeHtml(expansionMessage || "暂时无法获取关键词扩展数据。")}</p>
+          <button id="runExpansion" class="primary-action compact-action" type="button"><span aria-hidden="true">↻</span>重新扩展</button>
+        </div>
+      </div>
+    `;
+  }
+
+  const candidates = buildExpansionCandidates(plan);
+  if (!currentExpansion || currentExpansion.query !== plan.input.keyword || currentExpansion.market !== plan.input.market) {
+    return `
+      <div class="brief-block">
+        <div class="content-card serp-hero">
+          <h3>关键词扩展</h3>
+          <p>从 Google 下拉词生成真实用户搜索候选，并可合并 SERP 的相关搜索和 People Also Ask。</p>
+          <button id="runExpansion" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>获取下拉词</button>
+        </div>
+        <div class="section-grid">
+          <div class="content-card">
+            <h3>它会怎么用</h3>
+            <ul class="brief-list">
+              <li>短而能继续拆分的词，标成候选 Hub。</li>
+              <li>具体问题、价格、服务、对比词，标成 Spoke。</li>
+              <li>People Also Ask 适合作为 FAQ 或 H2。</li>
+              <li>Related Searches 适合作为 Spoke 或二级 Hub 候选。</li>
+            </ul>
+          </div>
+          <div class="content-card">
+            <h3>建议流程</h3>
+            <ol class="brief-list">
+              <li>先点这里获取下拉词。</li>
+              <li>再去 SERP Tab 跑一次分析。</li>
+              <li>回到这里合并查看所有候选。</li>
+              <li>把高优先级候选加入内容表。</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const rows = candidates.map(item => [
+    escapeHtml(item.keyword),
+    escapeHtml(item.source),
+    escapeHtml(item.use),
+    escapeHtml(item.pageType),
+    badge(item.priority)
+  ]);
+  const hubCount = candidates.filter(item => item.use.includes("Hub")).length;
+  const spokeCount = candidates.filter(item => item.use.includes("Spoke")).length;
+  const faqCount = candidates.filter(item => item.use.includes("FAQ")).length;
+
+  return `
+    <div class="brief-block">
+      <div class="grid-cards">
+        <div class="metric-card"><span>候选 Hub</span><strong>${hubCount}</strong></div>
+        <div class="metric-card"><span>候选 Spoke</span><strong>${spokeCount}</strong></div>
+        <div class="metric-card"><span>FAQ/H2 问题</span><strong>${faqCount}</strong></div>
+      </div>
+      <div class="content-card serp-hero">
+        <h3>关键词扩展：${escapeHtml(plan.input.keyword)}</h3>
+        <p>已合并 Autocomplete${currentSerp ? "、Related Searches 和 People Also Ask" : ""}。如果想补充相关搜索和 PAA，请先跑 SERP。</p>
+        <button id="runExpansion" class="ghost-button" type="button"><span aria-hidden="true">↻</span>刷新下拉词</button>
+      </div>
+      <div class="content-card">
+        <h3>扩展候选池</h3>
+        ${rows.length ? renderTable(["关键词/问题", "来源", "建议用途", "页面类型", "优先级"], rows) : "<p>暂时没有返回候选词。</p>"}
+      </div>
     </div>
   `;
 }
@@ -1028,6 +1182,7 @@ function renderPlan() {
     spokes: renderSpokes,
     priority: renderPriority,
     serp: renderSerp,
+    expansion: renderExpansion,
     dataIntent: renderDataIntent,
     brief: renderBrief,
     aeo: renderAeo,
@@ -1044,6 +1199,10 @@ function renderPlan() {
   const runButton = document.querySelector("#runSerpAnalysis");
   if (runButton) {
     runButton.addEventListener("click", runSerpAnalysis);
+  }
+  const expansionButton = document.querySelector("#runExpansion");
+  if (expansionButton) {
+    expansionButton.addEventListener("click", runExpansion);
   }
 }
 
@@ -1070,6 +1229,34 @@ async function runSerpAnalysis() {
     currentSerp = null;
     serpState = "error";
     serpMessage = error.message;
+  }
+
+  renderPlan();
+}
+
+async function runExpansion() {
+  if (!currentPlan || expansionState === "loading") return;
+  expansionState = "loading";
+  expansionMessage = "";
+  renderPlan();
+
+  const params = new URLSearchParams({
+    q: currentPlan.input.keyword,
+    market: currentPlan.input.market
+  });
+
+  try {
+    const response = await fetch(`/api/expand?${params.toString()}`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.setup || data.error || "Autocomplete request failed.");
+    }
+    currentExpansion = data;
+    expansionState = "ready";
+  } catch (error) {
+    currentExpansion = null;
+    expansionState = "error";
+    expansionMessage = error.message;
   }
 
   renderPlan();
@@ -1228,6 +1415,9 @@ form.addEventListener("submit", event => {
   currentSerp = null;
   serpState = "idle";
   serpMessage = "";
+  currentExpansion = null;
+  expansionState = "idle";
+  expansionMessage = "";
   localStorage.setItem("lastSeoPlan", JSON.stringify(currentPlan.input));
   renderPlan();
 });
