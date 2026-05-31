@@ -17,6 +17,7 @@
 - 内容资产库和更新频率
 - 内容质量评分
 - 工作流导出建议
+- OpenAI 文章初稿生成（需要 `OPENAI_API_KEY`）
 
 当前版本的策略规划使用规则模板生成。SERP 分析通过 Vercel Serverless Function 调用 SerpApi；搜索量、竞争度、CPC 支持手填，后续可接 DataForSEO、Ahrefs、Semrush 或 Google Keyword Planner。
 
@@ -31,3 +32,19 @@ SERPAPI_KEY=你的 SerpApi API Key
 ```
 
 添加后重新部署，即可在前端 `SERP` Tab 中拉取 Google 前 10、People Also Ask 和相关搜索。
+
+## 文章生成
+
+要启用完整 SEO 文章初稿生成，需要在 Vercel 项目环境变量中添加：
+
+```text
+OPENAI_API_KEY=你的 OpenAI API Key
+```
+
+可选指定模型：
+
+```text
+OPENAI_MODEL=gpt-5.4-mini
+```
+
+添加后重新部署，即可在 `页面结构` 或 `文章初稿` Tab 中生成 Markdown 文章初稿。

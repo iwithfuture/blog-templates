@@ -14,6 +14,9 @@ let serpMessage = "";
 let currentExpansion = null;
 let expansionState = "idle";
 let expansionMessage = "";
+let currentArticle = null;
+let articleState = "idle";
+let articleMessage = "";
 
 const pageTypeByIntent = {
   "定义认知": "百科/指南页",
@@ -987,6 +990,7 @@ function renderBrief(plan) {
         <p><strong>AEO 开头摘要：</strong>${escapeHtml(brief.summary)}</p>
         <p><strong>建议字数：</strong>${escapeHtml(brief.wordCount)}</p>
         <p><strong>写作语气：</strong>${escapeHtml(brief.tone)}</p>
+        <button id="generateArticle" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>生成完整文章</button>
       </div>
       <div class="section-grid">
         <div class="content-card">
@@ -1011,6 +1015,64 @@ function renderBrief(plan) {
           <ul class="brief-list">${brief.avoid.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
         </div>
       </div>
+    </div>
+  `;
+}
+
+function renderArticle(plan) {
+  if (articleState === "loading") {
+    return `
+      <div class="content-card serp-hero">
+        <h3>正在生成文章初稿</h3>
+        <p>正在基于「${escapeHtml(plan.brief.targetKeyword)}」的 Brief、SERP 和关键词扩展生成 Markdown 初稿...</p>
+      </div>
+    `;
+  }
+
+  if (articleState === "error") {
+    return `
+      <div class="brief-block">
+        <div class="content-card serp-hero">
+          <h3>文章生成未启用</h3>
+          <p>${escapeHtml(articleMessage || "暂时无法生成文章。")}</p>
+          <button id="generateArticle" class="primary-action compact-action" type="button"><span aria-hidden="true">↻</span>重新生成</button>
+        </div>
+        <div class="content-card">
+          <h3>配置方式</h3>
+          <ol class="brief-list">
+            <li>在 Vercel 项目 Settings -> Environment Variables 添加 <strong>OPENAI_API_KEY</strong>。</li>
+            <li>可选添加 <strong>OPENAI_MODEL</strong>，默认使用 <strong>gpt-5.4-mini</strong>。</li>
+            <li>重新部署项目，再回到这里生成文章。</li>
+          </ol>
+        </div>
+      </div>
+    `;
+  }
+
+  if (!currentArticle || currentArticle.keyword !== plan.brief.targetKeyword) {
+    return `
+      <div class="brief-block">
+        <div class="content-card serp-hero">
+          <h3>文章初稿</h3>
+          <p>基于当前页面结构生成一篇可编辑的 SEO Markdown 初稿。生成后仍需要你补充真实案例、图片、数据来源和内链。</p>
+          <button id="generateArticle" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>生成完整文章</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="brief-block">
+      <div class="content-card serp-hero">
+        <h3>文章初稿：${escapeHtml(currentArticle.keyword)}</h3>
+        <p>模型：${escapeHtml(currentArticle.model || "OpenAI")}。请人工核实案例、价格、数据和事实后再发布。</p>
+        <div class="toolbar-actions article-actions">
+          <button id="copyArticle" class="ghost-button" type="button"><span aria-hidden="true">⧉</span>复制文章</button>
+          <button id="downloadArticle" class="ghost-button" type="button"><span aria-hidden="true">↓</span>下载 Markdown</button>
+          <button id="generateArticle" class="ghost-button" type="button"><span aria-hidden="true">↻</span>重新生成</button>
+        </div>
+      </div>
+      <pre class="article-preview">${escapeHtml(currentArticle.article)}</pre>
     </div>
   `;
 }
@@ -1230,6 +1292,7 @@ function renderPlan() {
     expansion: renderExpansion,
     dataIntent: renderDataIntent,
     brief: renderBrief,
+    article: renderArticle,
     aeo: renderAeo,
     eeat: renderEeat,
     schema: renderSchema,
@@ -1252,6 +1315,26 @@ function renderPlan() {
   document.querySelectorAll("[data-brief-keyword]").forEach(button => {
     button.addEventListener("click", () => selectBrief(button.dataset.briefKeyword));
   });
+  const generateArticleButton = document.querySelector("#generateArticle");
+  if (generateArticleButton) {
+    generateArticleButton.addEventListener("click", generateArticle);
+  }
+  const copyArticleButton = document.querySelector("#copyArticle");
+  if (copyArticleButton) {
+    copyArticleButton.addEventListener("click", async () => {
+      if (!currentArticle?.article) return;
+      const copied = await copyText(currentArticle.article);
+      showToast(copied ? "文章已复制" : "当前浏览器禁止自动复制", copied ? "success" : "warning");
+    });
+  }
+  const downloadArticleButton = document.querySelector("#downloadArticle");
+  if (downloadArticleButton) {
+    downloadArticleButton.addEventListener("click", () => {
+      if (!currentArticle?.article) return;
+      downloadFile(`${currentArticle.keyword}-article.md`, currentArticle.article, "text/markdown;charset=utf-8");
+      showToast("Markdown 已生成，浏览器会开始下载");
+    });
+  }
 }
 
 async function runSerpAnalysis() {
@@ -1305,6 +1388,49 @@ async function runExpansion() {
     currentExpansion = null;
     expansionState = "error";
     expansionMessage = error.message;
+  }
+
+  renderPlan();
+}
+
+async function generateArticle() {
+  if (!currentPlan || articleState === "loading") return;
+  articleState = "loading";
+  articleMessage = "";
+  activeTab = "article";
+  tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
+  renderPlan();
+
+  try {
+    const response = await fetch("/api/generate-article", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: currentPlan.input,
+        brief: currentPlan.brief,
+        faq: currentPlan.faq,
+        serp: currentSerp,
+        expansion: currentExpansion,
+        options: {
+          length: currentPlan.input.depth === "深度版" ? "deep" : currentPlan.input.depth === "简版" ? "short" : "standard"
+        }
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.setup || data.error || "Article generation failed.");
+    }
+    currentArticle = {
+      keyword: currentPlan.brief.targetKeyword,
+      article: data.article,
+      model: data.model,
+      usage: data.usage
+    };
+    articleState = "ready";
+  } catch (error) {
+    currentArticle = null;
+    articleState = "error";
+    articleMessage = error.message;
   }
 
   renderPlan();
@@ -1467,6 +1593,9 @@ form.addEventListener("submit", event => {
   currentExpansion = null;
   expansionState = "idle";
   expansionMessage = "";
+  currentArticle = null;
+  articleState = "idle";
+  articleMessage = "";
   localStorage.setItem("lastSeoPlan", JSON.stringify(currentPlan.input));
   renderPlan();
 });
