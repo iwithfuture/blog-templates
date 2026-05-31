@@ -1,24 +1,25 @@
 :root {
   color-scheme: light;
-  --bg: #f3f6fb;
+  --bg: #fafbfc;
   --surface: #ffffff;
-  --surface-2: #f8fbff;
-  --surface-3: #eef4fa;
-  --text: #1d2738;
-  --muted: #66768a;
-  --muted-2: #9aa8b8;
-  --border: #dde6ef;
-  --border-strong: #c4d0dc;
-  --accent: #3157d5;
-  --accent-strong: #233f99;
-  --accent-soft: #eef3ff;
-  --ink: #142033;
+  --surface-2: #f2f5f7;
+  --surface-3: #e1e8ed;
+  --text: #3a4f66;
+  --muted: #6b7f94;
+  --muted-2: #8fa0b1;
+  --border: #e1e8ed;
+  --border-strong: #cdd8e2;
+  --accent: #2872fa;
+  --accent-strong: #1559ed;
+  --accent-soft: #eef5ff;
+  --ink: #192a3d;
   --green: #22745a;
   --amber: #9a641f;
   --red: #a2404d;
-  --blue: #3157d5;
-  --shadow: 0 12px 32px rgba(20, 32, 51, 0.07);
-  --shadow-soft: 0 8px 20px rgba(20, 32, 51, 0.055);
+  --blue: #2872fa;
+  --cyan: #6ec1e4;
+  --shadow: 0 12px 30px rgba(25, 42, 61, 0.07);
+  --shadow-soft: 0 8px 18px rgba(25, 42, 61, 0.055);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Microsoft YaHei", sans-serif;
@@ -34,9 +35,7 @@ html {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(49, 87, 213, 0.08), transparent 32%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -86,7 +85,7 @@ button {
   display: block;
   height: 2px;
   margin: -24px -24px 21px;
-  background: #d5e0ea;
+  background: var(--accent);
 }
 
 .brand-row {
@@ -102,21 +101,34 @@ button {
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(40, 114, 250, 0.24);
   border-radius: 8px;
-  background: #142033;
+  background: var(--accent);
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
 }
 
 .eyebrow {
   margin: 0 0 5px;
-  color: var(--muted);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.site-link {
+  display: inline-flex;
+  margin: -10px 0 18px;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.site-link:hover {
+  text-decoration: underline;
 }
 
 h1,
@@ -275,7 +287,7 @@ select:focus {
   min-height: 47px;
   border: 0;
   border-radius: 8px;
-  background: #142033;
+  background: var(--accent);
   color: #fff;
   font-weight: 900;
   box-shadow: 0 10px 18px rgba(16, 24, 40, 0.16);
@@ -286,8 +298,8 @@ select:focus {
 }
 
 .primary-action:hover {
-  background: #20304a;
-  box-shadow: 0 12px 22px rgba(16, 24, 40, 0.18);
+  background: var(--accent-strong);
+  box-shadow: 0 12px 22px rgba(40, 114, 250, 0.2);
   transform: translateY(-1px);
 }
 
@@ -513,9 +525,9 @@ select:focus {
 }
 
 .tab.is-active {
-  background: #142033;
+  background: var(--accent);
   color: #fff;
-  border-color: #142033;
+  border-color: var(--accent);
   box-shadow: none;
 }
 
@@ -548,7 +560,7 @@ select:focus {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: #3157d5;
+  background: var(--accent);
 }
 
 .metric-card span {
@@ -794,7 +806,7 @@ tr:last-child td {
   border: 1px solid rgba(16, 24, 40, 0.2);
   border-radius: 8px;
   padding: 12px 14px;
-  background: #142033;
+  background: var(--ink);
   color: #fff;
   box-shadow: 0 18px 35px rgba(17, 24, 39, 0.2);
   font-size: 13px;
