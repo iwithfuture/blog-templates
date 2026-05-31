@@ -21,6 +21,7 @@ let savedProjects = loadProjects();
 let competitorAnalysis = null;
 let competitorState = "idle";
 let competitorMessage = "";
+let competitorInputUrl = "";
 
 const pageTypeByIntent = {
   "定义认知": "百科/指南页",
@@ -1462,6 +1463,7 @@ function renderGap(plan) {
   const schemaRows = competitor?.schemaTypes?.map(item => [escapeHtml(item)]) || [];
   const faqRows = competitor?.faqQuestions?.map(item => [escapeHtml(item)]) || [];
   const suggestionRows = competitorAnalysis?.suggestions?.map(item => [escapeHtml(item)]) || [];
+  const competitorUrlValue = competitor?.url || competitorInputUrl;
 
   return `
     <div class="brief-block">
@@ -1469,7 +1471,7 @@ function renderGap(plan) {
         <h3>竞品内容差距分析</h3>
         <p>输入竞品页面 URL，自动抓取 Title、Meta、H1-H3、FAQ Schema 和 JSON-LD 类型，再生成内容差距建议。</p>
         <div class="url-analyzer">
-          <input id="competitorUrl" type="url" placeholder="https://competitor.com/example-page" value="${escapeHtml(competitor?.url || "")}" />
+          <input id="competitorUrl" type="url" placeholder="https://competitor.com/example-page" value="${escapeHtml(competitorUrlValue)}" />
           <button id="analyzeCompetitor" class="primary-action compact-action" type="button" ${competitorState === "loading" ? "disabled" : ""}>${competitorState === "loading" ? "分析中..." : "分析竞品 URL"}</button>
         </div>
         ${competitorState === "error" ? `<p class="inline-error">${escapeHtml(competitorMessage)}</p>` : ""}
@@ -1637,6 +1639,7 @@ async function analyzeCompetitor() {
     return;
   }
 
+  competitorInputUrl = url;
   competitorState = "loading";
   competitorMessage = "";
   renderPlan();
@@ -1653,6 +1656,7 @@ async function analyzeCompetitor() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || data.detail || "Competitor analysis failed.");
     competitorAnalysis = data;
+    competitorInputUrl = data.competitor?.url || url;
     competitorState = "ready";
   } catch (error) {
     competitorAnalysis = null;
@@ -1698,6 +1702,7 @@ function loadProject(index) {
   competitorAnalysis = null;
   competitorState = "idle";
   competitorMessage = "";
+  competitorInputUrl = "";
   activeTab = "hubs";
   tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
   showToast("项目已载入");
@@ -1977,6 +1982,7 @@ form.addEventListener("submit", event => {
   competitorAnalysis = null;
   competitorState = "idle";
   competitorMessage = "";
+  competitorInputUrl = "";
   localStorage.setItem("lastSeoPlan", JSON.stringify(currentPlan.input));
   renderPlan();
 });

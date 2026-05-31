@@ -107,21 +107,32 @@ function compareWithTarget(targetKeyword, competitor) {
   return suggestions.slice(0, 8);
 }
 
+function fetchErrorMessage(status) {
+  const messages = {
+    401: "这个页面需要登录或授权，暂时无法直接抓取。",
+    403: "这个竞品页面拒绝服务器抓取（403 Forbidden）。通常是网站开启了反爬、Cloudflare、防火墙，或屏蔽了 Vercel 这类服务器 IP。",
+    404: "这个竞品页面不存在或 URL 写错了（404）。",
+    408: "竞品页面响应超时，请稍后重试或换一个 URL。",
+    429: "竞品网站限制访问频率（429），请稍后再试。"
+  };
+  return messages[status] || `竞品页面返回 ${status}，暂时无法抓取。`;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Only POST requests are supported." });
+    return res.status(405).json({ error: "只支持 POST 请求。" });
   }
 
   const { url, keyword = "" } = req.body || {};
-  if (!url) return res.status(400).json({ error: "Missing competitor URL." });
+  if (!url) return res.status(400).json({ error: "请先输入竞品 URL。" });
 
   let parsedUrl;
   try {
     parsedUrl = new URL(url);
     if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error("Invalid protocol");
   } catch {
-    return res.status(400).json({ error: "Invalid URL." });
+    return res.status(400).json({ error: "URL 格式不正确，请输入完整的 https:// 页面地址。" });
   }
 
   try {
@@ -134,8 +145,13 @@ module.exports = async function handler(req, res) {
     });
 
     const contentType = response.headers.get("content-type") || "";
-    if (!response.ok) return res.status(response.status).json({ error: `Fetch failed with status ${response.status}.` });
-    if (!contentType.includes("text/html")) return res.status(415).json({ error: "URL did not return HTML content." });
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: fetchErrorMessage(response.status),
+        detail: `HTTP ${response.status}`
+      });
+    }
+    if (!contentType.includes("text/html")) return res.status(415).json({ error: "这个 URL 返回的不是 HTML 页面，无法提取 H2、FAQ 和 Schema。" });
 
     const html = await response.text();
     const title = matchFirst(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -171,7 +187,7 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     return res.status(500).json({
-      error: "Failed to analyze competitor URL.",
+      error: "竞品 URL 分析失败，请换一个页面 URL 后重试。",
       detail: error.message
     });
   }
