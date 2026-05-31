@@ -1,24 +1,24 @@
 :root {
   color-scheme: light;
-  --bg: #eef3f7;
+  --bg: #f5f7fb;
   --surface: #ffffff;
-  --surface-2: #f7f9fc;
-  --surface-3: #edf7f8;
-  --text: #111827;
-  --muted: #64748b;
-  --muted-2: #8b98a8;
-  --border: #d8e1ea;
-  --border-strong: #bfccd8;
-  --accent: #0e7490;
-  --accent-strong: #155e75;
-  --accent-soft: #e6f6f8;
-  --ink: #0f172a;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --text: #172033;
+  --muted: #667085;
+  --muted-2: #98a2b3;
+  --border: #e3e8ef;
+  --border-strong: #cdd5df;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --ink: #101828;
   --green: #1f7a4d;
   --amber: #a45f12;
   --red: #a13d45;
-  --blue: #275d9f;
-  --shadow: 0 24px 60px rgba(15, 23, 42, 0.09);
-  --shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.07);
+  --blue: #2563eb;
+  --shadow: 0 10px 30px rgba(16, 24, 40, 0.06);
+  --shadow-soft: 0 8px 18px rgba(16, 24, 40, 0.05);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Microsoft YaHei", sans-serif;
@@ -34,10 +34,7 @@ html {
 
 body {
   margin: 0;
-  background:
-    linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(239, 244, 248, 0.98)),
-    linear-gradient(135deg, rgba(14, 116, 144, 0.1), rgba(39, 93, 159, 0.06) 40%, rgba(238, 242, 245, 0.95)),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -67,11 +64,10 @@ button {
 
 .input-panel,
 .output-panel {
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(216, 225, 234, 0.92);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(12px);
 }
 
 .input-panel {
@@ -86,9 +82,9 @@ button {
 .output-panel::before {
   content: "";
   display: block;
-  height: 3px;
+  height: 1px;
   margin: -24px -24px 21px;
-  background: linear-gradient(90deg, var(--accent), var(--blue), #b7791f);
+  background: var(--border);
 }
 
 .brand-row {
@@ -104,18 +100,17 @@ button {
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid rgba(15, 118, 110, 0.24);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: linear-gradient(145deg, #0f172a, #0e7490);
-  color: #fff;
+  background: #f8fafc;
+  color: var(--ink);
   font-size: 13px;
   font-weight: 900;
-  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.2);
 }
 
 .eyebrow {
   margin: 0 0 5px;
-  color: var(--accent-strong);
+  color: var(--muted);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0;
@@ -132,7 +127,7 @@ p {
 h1 {
   margin-bottom: 0;
   color: var(--ink);
-  font-size: 23px;
+  font-size: 22px;
   line-height: 1.2;
   letter-spacing: 0;
 }
@@ -140,7 +135,7 @@ h1 {
 h2 {
   margin-bottom: 0;
   color: var(--ink);
-  font-size: 25px;
+  font-size: 24px;
   line-height: 1.18;
   letter-spacing: 0;
 }
@@ -164,7 +159,7 @@ h3 {
 }
 
 .field > span {
-  color: #334155;
+  color: #344054;
   font-size: 12px;
   font-weight: 850;
 }
@@ -225,7 +220,7 @@ input:focus,
 select:focus {
   border-color: var(--accent);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .segmented {
@@ -278,10 +273,10 @@ select:focus {
   min-height: 47px;
   border: 0;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--ink), var(--accent-strong));
+  background: var(--ink);
   color: #fff;
   font-weight: 900;
-  box-shadow: 0 14px 24px rgba(23, 32, 51, 0.18);
+  box-shadow: 0 10px 18px rgba(16, 24, 40, 0.16);
   transition:
     transform 0.16s ease,
     background 0.16s ease,
@@ -289,8 +284,8 @@ select:focus {
 }
 
 .primary-action:hover {
-  background: linear-gradient(135deg, #111827, var(--accent));
-  box-shadow: 0 16px 30px rgba(14, 116, 144, 0.24);
+  background: #1d2939;
+  box-shadow: 0 12px 22px rgba(16, 24, 40, 0.18);
   transform: translateY(-1px);
 }
 
@@ -313,9 +308,9 @@ select:focus {
 .side-note {
   margin-top: 18px;
   padding: 14px;
-  border: 1px solid rgba(15, 118, 110, 0.17);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: linear-gradient(180deg, #f8fcfd, #edf7f8);
+  background: var(--surface-2);
 }
 
 .side-note strong {
@@ -339,11 +334,11 @@ select:focus {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
-  border: 1px solid rgba(15, 118, 110, 0.16);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 9px;
   background: #fff;
-  color: #31565a;
+  color: #475467;
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
@@ -362,10 +357,10 @@ select:focus {
   justify-content: space-between;
   gap: 18px;
   margin: -2px 0 16px;
-  border: 1px solid rgba(216, 225, 234, 0.85);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
-  background: linear-gradient(135deg, #ffffff, #f6fafb);
+  background: var(--surface-2);
 }
 
 .result-meta {
@@ -392,7 +387,7 @@ select:focus {
   color: #243244;
   font-size: 13px;
   font-weight: 850;
-  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.04);
+  box-shadow: none;
   transition:
     border-color 0.16s ease,
     color 0.16s ease,
@@ -401,9 +396,9 @@ select:focus {
 }
 
 .ghost-button:hover {
-  border-color: rgba(15, 118, 110, 0.45);
+  border-color: var(--border-strong);
   color: var(--accent-strong);
-  box-shadow: 0 12px 22px rgba(17, 24, 39, 0.07);
+  box-shadow: var(--shadow-soft);
   transform: translateY(-1px);
 }
 
@@ -414,7 +409,7 @@ select:focus {
 
 .inline-action {
   min-height: 30px;
-  border: 1px solid rgba(15, 118, 110, 0.22);
+  border: 1px solid #bfdbfe;
   border-radius: 7px;
   padding: 5px 10px;
   background: var(--accent-soft);
@@ -436,8 +431,8 @@ select:focus {
 }
 
 .inline-action:hover {
-  border-color: rgba(15, 118, 110, 0.45);
-  background: #d7eeeb;
+  border-color: #93c5fd;
+  background: #dbeafe;
 }
 
 .inline-action.secondary {
@@ -457,9 +452,9 @@ select:focus {
   gap: 10px;
   overflow-x: auto;
   padding: 10px;
-  border: 1px solid rgba(216, 225, 234, 0.9);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #eef3f7;
+  background: var(--surface-2);
 }
 
 .tab-group {
@@ -468,11 +463,10 @@ select:focus {
   align-content: flex-start;
   gap: 6px;
   min-width: 0;
-  border: 1px solid rgba(219, 227, 234, 0.78);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 9px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  background: #fff;
 }
 
 .tab-group > span {
@@ -517,10 +511,10 @@ select:focus {
 }
 
 .tab.is-active {
-  background: var(--ink);
-  color: #fff;
-  border-color: rgba(15, 23, 42, 0.2);
-  box-shadow: var(--shadow-soft);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: #bfdbfe;
+  box-shadow: none;
 }
 
 .tab-content {
@@ -538,7 +532,7 @@ select:focus {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);
+  box-shadow: 0 6px 16px rgba(16, 24, 40, 0.035);
 }
 
 .metric-card {
@@ -552,7 +546,7 @@ select:focus {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: linear-gradient(180deg, var(--accent), var(--blue));
+  background: var(--accent);
 }
 
 .metric-card span {
@@ -725,7 +719,7 @@ tr:last-child td {
 
 .article-editor:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .article-actions {
@@ -745,11 +739,11 @@ tr:last-child td {
 }
 
 .serp-hero {
-  background: linear-gradient(135deg, #ffffff, #f3fbfa);
+  background: var(--surface-2);
 }
 
 .brief-switcher {
-  background: linear-gradient(135deg, #f8fbfb, #eef8f7);
+  background: var(--surface-2);
 }
 
 .score-bar {
@@ -764,7 +758,7 @@ tr:last-child td {
   display: block;
   height: 9px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), var(--blue));
+  background: var(--accent);
 }
 
 .score-bar::before {
@@ -795,7 +789,7 @@ tr:last-child td {
   bottom: 18px;
   z-index: 50;
   max-width: min(360px, calc(100vw - 36px));
-  border: 1px solid rgba(15, 118, 110, 0.2);
+  border: 1px solid rgba(16, 24, 40, 0.2);
   border-radius: 8px;
   padding: 12px 14px;
   background: #10212b;

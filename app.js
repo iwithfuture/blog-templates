@@ -886,7 +886,7 @@ function renderSerp(plan) {
         <div class="content-card serp-hero">
           <h3>SERP 竞争分析</h3>
           <p>拉取「${query}」在 ${market} 下的 Google 前 10 结果，判断页面类型、PAA 问题和内容缺口。</p>
-          <button id="runSerpAnalysis" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>分析 SERP</button>
+          <button id="runSerpAnalysis" class="primary-action compact-action" type="button">分析 SERP</button>
         </div>
         <div class="section-grid">
           <div class="content-card">
@@ -984,7 +984,7 @@ function renderExpansion(plan) {
         <div class="content-card serp-hero">
           <h3>关键词扩展</h3>
           <p>从 Google 下拉词生成真实用户搜索候选，并可合并 SERP 的相关搜索和 People Also Ask。</p>
-          <button id="runExpansion" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>获取下拉词</button>
+          <button id="runExpansion" class="primary-action compact-action" type="button">获取下拉词</button>
         </div>
         <div class="section-grid">
           <div class="content-card">
@@ -1092,7 +1092,7 @@ function renderBrief(plan) {
         <p><strong>AEO 开头摘要：</strong>${escapeHtml(brief.summary)}</p>
         <p><strong>建议字数：</strong>${escapeHtml(brief.wordCount)}</p>
         <p><strong>写作语气：</strong>${escapeHtml(brief.tone)}</p>
-        <button id="generateArticle" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>生成完整文章</button>
+        <button id="generateArticle" class="primary-action compact-action" type="button">生成完整文章</button>
       </div>
       <div class="section-grid">
         <div class="content-card">
@@ -1157,7 +1157,7 @@ function renderArticle(plan) {
         <div class="content-card serp-hero">
           <h3>文章初稿</h3>
           <p>基于当前页面结构生成一篇可编辑的 SEO Markdown 初稿。生成后仍需要你补充真实案例、图片、数据来源和内链。</p>
-          <button id="generateArticle" class="primary-action compact-action" type="button"><span aria-hidden="true">→</span>生成完整文章</button>
+          <button id="generateArticle" class="primary-action compact-action" type="button">生成完整文章</button>
         </div>
       </div>
     `;
@@ -1169,8 +1169,8 @@ function renderArticle(plan) {
         <h3>文章初稿：${escapeHtml(currentArticle.keyword)}</h3>
         <p>模型：${escapeHtml(currentArticle.model || "OpenAI")}。请人工核实案例、价格、数据和事实后再发布。</p>
         <div class="toolbar-actions article-actions">
-          <button id="copyArticle" class="ghost-button" type="button"><span aria-hidden="true">⧉</span>复制文章</button>
-          <button id="downloadArticle" class="ghost-button" type="button"><span aria-hidden="true">↓</span>下载 Markdown</button>
+          <button id="copyArticle" class="ghost-button" type="button">复制文章</button>
+          <button id="downloadArticle" class="ghost-button" type="button">下载 Markdown</button>
           <button id="generateArticle" class="ghost-button" type="button"><span aria-hidden="true">↻</span>重新生成</button>
         </div>
       </div>
@@ -1478,7 +1478,7 @@ function renderReport(plan) {
       <div class="content-card serp-hero">
         <h3>客户报告模板</h3>
         <p>适合月度汇报、项目启动报告或阶段复盘。可以先复制给客户，后续再接 GSC 数据自动填指标。</p>
-        <button id="copyReport" class="ghost-button" type="button"><span aria-hidden="true">⧉</span>复制报告</button>
+        <button id="copyReport" class="ghost-button" type="button">复制报告</button>
       </div>
       <pre class="article-preview">${escapeHtml(markdown)}</pre>
     </div>
@@ -1491,7 +1491,7 @@ function renderPlan() {
     return;
   }
 
-  resultTitle.textContent = `${currentPlan.input.keyword} 内容规划`;
+  resultTitle.textContent = `${currentPlan.input.keyword} 增长方案`;
 
   const views = {
     hubs: renderHubs,
@@ -1918,7 +1918,7 @@ copyButton.addEventListener("click", async () => {
     copyButton.textContent = "已复制";
     showToast("Markdown 已复制，可以粘贴到文档里");
     setTimeout(() => {
-      copyButton.innerHTML = `<span aria-hidden="true">⧉</span>复制 Markdown`;
+      copyButton.textContent = "复制 Markdown";
     }, 1400);
   } else {
     showToast("当前浏览器禁止自动复制，请换浏览器或手动选择内容", "warning");
