@@ -7,6 +7,7 @@ const tabs = Array.from(document.querySelectorAll(".tab"));
 
 let activeTab = "hubs";
 let currentPlan = null;
+let selectedBriefKeyword = null;
 let currentSerp = null;
 let serpState = "idle";
 let serpMessage = "";
@@ -182,8 +183,8 @@ function rankSpokes(spokes) {
   return [...spokes].sort((a, b) => score(b) - score(a)).slice(0, 10);
 }
 
-function buildBrief(input, priority) {
-  const focus = priority[0];
+function buildBrief(input, priority, selectedItem = null) {
+  const focus = selectedItem || priority[0];
   const k = input.keyword;
   const title = focus.keyword;
   const problemLine = `${title}的核心不是只追求数量或表面动作，而是先确认目标、质量标准、执行流程和转化承接。`;
@@ -658,6 +659,42 @@ function renderTable(headers, rows) {
   `;
 }
 
+function findContentItem(keyword) {
+  if (!currentPlan) return null;
+  return [...currentPlan.spokes, ...currentPlan.priority].find(item => item.keyword === keyword) || null;
+}
+
+function makeBriefFromKeyword(keyword, fallback = {}) {
+  const existing = findContentItem(keyword);
+  if (existing) return buildBrief(currentPlan.input, currentPlan.priority, existing);
+
+  return buildBrief(currentPlan.input, currentPlan.priority, {
+    hub: fallback.hub || `${currentPlan.input.keyword}指南`,
+    keyword,
+    intent: fallback.intent || "教程执行",
+    pageType: fallback.pageType || "教程/指南页",
+    businessValue: fallback.businessValue || "中",
+    priority: fallback.priority || "中",
+    cta: fallback.cta || currentPlan.input.coreOffer
+  });
+}
+
+function briefButton(keyword) {
+  return `<button class="inline-action" type="button" data-brief-keyword="${escapeHtml(keyword)}">生成 Brief</button>`;
+}
+
+function selectBrief(keyword) {
+  if (!currentPlan) return;
+  selectedBriefKeyword = keyword;
+  currentPlan.brief = makeBriefFromKeyword(keyword);
+  currentPlan.faq = buildFaq(currentPlan.input, currentPlan.brief);
+  currentPlan.schema = buildSchema(currentPlan.input, currentPlan.brief);
+  activeTab = "brief";
+  tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
+  renderPlan();
+  showToast(`已切换到「${keyword}」的页面结构`);
+}
+
 function renderHubs(plan) {
   const metrics = `
     <div class="grid-cards">
@@ -685,9 +722,10 @@ function renderSpokes(plan) {
     escapeHtml(item.pageType),
     badge(item.businessValue),
     badge(item.priority),
-    escapeHtml(item.cta)
+    escapeHtml(item.cta),
+    briefButton(item.keyword)
   ]);
-  return `<div class="content-card"><h3>Spoke 内容地图</h3>${renderTable(["Hub", "Spoke", "搜索意图", "页面类型", "商业价值", "优先级", "CTA"], rows)}</div>`;
+  return `<div class="content-card"><h3>Spoke 内容地图</h3>${renderTable(["Hub", "Spoke", "搜索意图", "页面类型", "商业价值", "优先级", "CTA", "操作"], rows)}</div>`;
 }
 
 function renderPriority(plan) {
@@ -698,9 +736,10 @@ function renderPriority(plan) {
     escapeHtml(item.intent),
     escapeHtml(item.pageType),
     badge(item.businessValue),
-    escapeHtml(item.cta)
+    escapeHtml(item.cta),
+    briefButton(item.keyword)
   ]);
-  return `<div class="content-card"><h3>第一批优先内容</h3><p>这批内容优先考虑商业价值、痛点强度、可转化性和主题权威，不等同于真实搜索量排序。发布前仍建议用 Keyword Planner、Ahrefs、SEMrush 或 Search Console 校准。</p>${renderTable(["顺序", "关键词/标题", "Hub", "搜索意图", "页面类型", "商业价值", "CTA"], rows)}</div>`;
+  return `<div class="content-card"><h3>第一批优先内容</h3><p>这批内容优先考虑商业价值、痛点强度、可转化性和主题权威，不等同于真实搜索量排序。发布前仍建议用 Keyword Planner、Ahrefs、SEMrush 或 Search Console 校准。</p>${renderTable(["顺序", "关键词/标题", "Hub", "搜索意图", "页面类型", "商业价值", "CTA", "操作"], rows)}</div>`;
 }
 
 function renderSerp(plan) {
@@ -871,7 +910,8 @@ function renderExpansion(plan) {
     escapeHtml(item.source),
     escapeHtml(item.use),
     escapeHtml(item.pageType),
-    badge(item.priority)
+    badge(item.priority),
+    briefButton(item.keyword)
   ]);
   const hubCount = candidates.filter(item => item.use.includes("Hub")).length;
   const spokeCount = candidates.filter(item => item.use.includes("Spoke")).length;
@@ -891,7 +931,7 @@ function renderExpansion(plan) {
       </div>
       <div class="content-card">
         <h3>扩展候选池</h3>
-        ${rows.length ? renderTable(["关键词/问题", "来源", "建议用途", "页面类型", "优先级"], rows) : "<p>暂时没有返回候选词。</p>"}
+        ${rows.length ? renderTable(["关键词/问题", "来源", "建议用途", "页面类型", "优先级", "操作"], rows) : "<p>暂时没有返回候选词。</p>"}
       </div>
     </div>
   `;
@@ -934,6 +974,11 @@ function renderBrief(plan) {
   const brief = plan.brief;
   return `
     <div class="brief-block">
+      <div class="content-card brief-switcher">
+        <h3>当前写作对象</h3>
+        <p>${escapeHtml(selectedBriefKeyword || brief.targetKeyword)}</p>
+        <p>可以在 Spoke、优先内容或关键词扩展里点击“生成 Brief”，这里会切换成对应文章的写作结构。</p>
+      </div>
       <div class="content-card">
         <h3>单篇页面结构：${escapeHtml(brief.targetKeyword)}</h3>
         <p><strong>H1：</strong>${escapeHtml(brief.h1)}</p>
@@ -1204,6 +1249,9 @@ function renderPlan() {
   if (expansionButton) {
     expansionButton.addEventListener("click", runExpansion);
   }
+  document.querySelectorAll("[data-brief-keyword]").forEach(button => {
+    button.addEventListener("click", () => selectBrief(button.dataset.briefKeyword));
+  });
 }
 
 async function runSerpAnalysis() {
@@ -1411,6 +1459,7 @@ form.addEventListener("submit", event => {
   event.preventDefault();
   const input = getFormData();
   if (!input.keyword) return;
+  selectedBriefKeyword = null;
   currentPlan = buildPlan(input);
   currentSerp = null;
   serpState = "idle";
