@@ -22,6 +22,10 @@ let competitorAnalysis = null;
 let competitorState = "idle";
 let competitorMessage = "";
 let competitorInputUrl = "";
+let competitorManualLabel = "";
+let competitorManualContent = "";
+let articleConfig = null;
+let articleConfigState = "idle";
 
 const pageTypeByIntent = {
   "定义认知": "百科/指南页",
@@ -744,6 +748,10 @@ function renderTable(headers, rows) {
   `;
 }
 
+function countLabel(value, suffix = "次") {
+  return `${escapeHtml(value.text)}（${value.count}${suffix}）`;
+}
+
 function findContentItem(keyword) {
   if (!currentPlan) return null;
   return [...currentPlan.spokes, ...currentPlan.priority].find(item => item.keyword === keyword) || null;
@@ -1125,6 +1133,38 @@ function renderBrief(plan) {
   `;
 }
 
+function renderArticleConfigCard() {
+  if (articleConfigState === "loading") {
+    return `
+      <div class="content-card">
+        <h3>OpenAI 配置状态</h3>
+        <p>正在检查 Vercel 环境变量...</p>
+      </div>
+    `;
+  }
+
+  if (articleConfig?.configured) {
+    return `
+      <div class="content-card">
+        <h3>OpenAI 已接入</h3>
+        <p>当前模型：${escapeHtml(articleConfig.model || "gpt-5.4-mini")}。可以直接生成完整文章初稿。</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="content-card">
+      <h3>OpenAI 未配置</h3>
+      <p>文章生成接口已经做好，添加 API Key 后就能使用。</p>
+      <ol class="brief-list">
+        <li>在 Vercel 项目 Settings -> Environment Variables 添加 <strong>OPENAI_API_KEY</strong>。</li>
+        <li>可选添加 <strong>OPENAI_MODEL</strong>，默认使用 <strong>gpt-5.4-mini</strong>。</li>
+        <li>重新部署项目，再回到这里生成文章。</li>
+      </ol>
+    </div>
+  `;
+}
+
 function renderArticle(plan) {
   if (articleState === "loading") {
     return `
@@ -1143,14 +1183,7 @@ function renderArticle(plan) {
           <p>${escapeHtml(articleMessage || "暂时无法生成文章。")}</p>
           <button id="generateArticle" class="primary-action compact-action" type="button"><span aria-hidden="true">↻</span>重新生成</button>
         </div>
-        <div class="content-card">
-          <h3>配置方式</h3>
-          <ol class="brief-list">
-            <li>在 Vercel 项目 Settings -> Environment Variables 添加 <strong>OPENAI_API_KEY</strong>。</li>
-            <li>可选添加 <strong>OPENAI_MODEL</strong>，默认使用 <strong>gpt-5.4-mini</strong>。</li>
-            <li>重新部署项目，再回到这里生成文章。</li>
-          </ol>
-        </div>
+        ${renderArticleConfigCard()}
       </div>
     `;
   }
@@ -1163,6 +1196,7 @@ function renderArticle(plan) {
           <p>基于当前页面结构生成一篇可编辑的 SEO Markdown 初稿。生成后仍需要你补充真实案例、图片、数据来源和内链。</p>
           <button id="generateArticle" class="primary-action compact-action" type="button">生成完整文章</button>
         </div>
+        ${renderArticleConfigCard()}
       </div>
     `;
   }
@@ -1455,46 +1489,75 @@ function renderGap(plan) {
     escapeHtml(item.check),
     escapeHtml(item.action)
   ]);
-  const competitor = competitorAnalysis?.competitor;
-  const headingRows = competitor?.headings?.map(item => [
+  const competitors = competitorAnalysis?.competitors || (competitorAnalysis?.competitor ? [competitorAnalysis.competitor] : []);
+  const comparison = competitorAnalysis?.comparison;
+  const firstCompetitor = competitors[0];
+  const competitorUrlValue = competitorInputUrl || competitors.map(item => item.url).filter(Boolean).join("\n");
+  const summaryRows = competitors.map(item => [
+    escapeHtml(item.label || item.domain),
+    escapeHtml(item.pageType),
+    String(item.headings?.length || 0),
+    String(item.faqQuestions?.length || 0),
+    escapeHtml((item.schemaTypes || []).slice(0, 5).join(" / ") || "未检测到")
+  ]);
+  const headingRows = competitors.flatMap(item => (item.headings || []).slice(0, 18).map(heading => [
+    escapeHtml(item.label || item.domain),
+    escapeHtml(heading.level),
+    escapeHtml(heading.text)
+  ]));
+  const schemaRows = comparison?.topSchemas?.map(item => [countLabel(item)]) || [];
+  const faqRows = comparison?.topFaq?.map(item => [countLabel(item)]) || [];
+  const commonHeadingRows = comparison?.topHeadings?.map(item => [countLabel(item)]) || [];
+  const pageTypeRows = comparison?.dominantPageTypes?.map(item => [countLabel(item)]) || [];
+  const suggestionRows = (comparison?.suggestions || competitorAnalysis?.suggestions || []).map(item => [escapeHtml(item)]);
+  const errorRows = competitorAnalysis?.errors?.map(item => [
+    escapeHtml(item.url || "手动内容"),
+    escapeHtml(item.error || item.detail || "解析失败")
+  ]) || [];
+
+  const legacyHeadingRows = firstCompetitor?.headings?.map(item => [
     escapeHtml(item.level),
     escapeHtml(item.text)
   ]) || [];
-  const schemaRows = competitor?.schemaTypes?.map(item => [escapeHtml(item)]) || [];
-  const faqRows = competitor?.faqQuestions?.map(item => [escapeHtml(item)]) || [];
-  const suggestionRows = competitorAnalysis?.suggestions?.map(item => [escapeHtml(item)]) || [];
-  const competitorUrlValue = competitor?.url || competitorInputUrl;
 
   return `
     <div class="brief-block">
       <div class="content-card serp-hero">
         <h3>竞品内容差距分析</h3>
-        <p>输入竞品页面 URL，自动抓取 Title、Meta、H1-H3、FAQ Schema 和 JSON-LD 类型，再生成内容差距建议。</p>
+        <p>输入 1-5 个竞品页面 URL，或在抓取失败时粘贴 HTML/正文，自动提取 H2/H3、FAQ 和 Schema 做对比。</p>
         <div class="url-analyzer">
-          <input id="competitorUrl" type="url" placeholder="https://competitor.com/example-page" value="${escapeHtml(competitorUrlValue)}" />
-          <button id="analyzeCompetitor" class="primary-action compact-action" type="button" ${competitorState === "loading" ? "disabled" : ""}>${competitorState === "loading" ? "分析中..." : "分析竞品 URL"}</button>
+          <textarea id="competitorUrls" class="form-textarea compact-textarea" placeholder="每行一个竞品 URL，最多 5 个">${escapeHtml(competitorUrlValue)}</textarea>
+          <button id="analyzeCompetitor" class="primary-action compact-action" type="button" ${competitorState === "loading" ? "disabled" : ""}>${competitorState === "loading" ? "分析中..." : "分析竞品"}</button>
         </div>
+        <details class="manual-competitor">
+          <summary>抓不到时：手动粘贴竞品 HTML / 正文 / H2-H3</summary>
+          <div class="manual-grid">
+            <input id="competitorManualLabel" type="text" placeholder="竞品名称，可选" value="${escapeHtml(competitorManualLabel)}" />
+            <textarea id="competitorManualContent" class="form-textarea" placeholder="可以粘贴网页 HTML，也可以粘贴正文大纲，例如：&#10;H1: 外链建设指南&#10;H2: 什么是外链&#10;H2: 外链怎么做">${escapeHtml(competitorManualContent)}</textarea>
+          </div>
+        </details>
         ${competitorState === "error" ? `<p class="inline-error">${escapeHtml(competitorMessage)}</p>` : ""}
       </div>
-      ${competitor ? `
+      ${competitors.length ? `
         <div class="grid-cards">
-          <div class="metric-card"><span>竞品域名</span><strong>${escapeHtml(competitor.domain)}</strong></div>
-          <div class="metric-card"><span>页面类型</span><strong>${escapeHtml(competitor.pageType)}</strong></div>
-          <div class="metric-card"><span>标题数量</span><strong>${competitor.headings.length}</strong></div>
+          <div class="metric-card"><span>已解析竞品</span><strong>${competitors.length}</strong></div>
+          <div class="metric-card"><span>高频标题角度</span><strong>${comparison?.topHeadings?.length || 0}</strong></div>
+          <div class="metric-card"><span>FAQ 问题</span><strong>${comparison?.topFaq?.length || 0}</strong></div>
         </div>
-        <div class="content-card">
-          <h3>页面基础信息</h3>
-          <p><strong>Title：</strong>${escapeHtml(competitor.title || "未检测到")}</p>
-          <p><strong>Meta Description：</strong>${escapeHtml(competitor.metaDescription || "未检测到")}</p>
-        </div>
+        <div class="content-card"><h3>竞品概览</h3>${renderTable(["竞品", "页面类型", "标题数", "FAQ数", "Schema"], summaryRows)}</div>
         <div class="section-grid">
-          <div class="content-card"><h3>内容标题结构</h3>${headingRows.length ? renderTable(["层级", "标题"], headingRows) : "<p>未检测到 H1-H3。</p>"}</div>
+          <div class="content-card"><h3>重复出现的 H2/H3</h3>${commonHeadingRows.length ? renderTable(["高频角度"], commonHeadingRows) : "<p>暂未形成明显共性。</p>"}</div>
           <div class="content-card"><h3>差距建议</h3>${suggestionRows.length ? renderTable(["建议"], suggestionRows) : "<p>暂未发现明显差距。</p>"}</div>
         </div>
         <div class="section-grid">
+          <div class="content-card"><h3>页面类型分布</h3>${pageTypeRows.length ? renderTable(["类型"], pageTypeRows) : "<p>暂未检测到。</p>"}</div>
           <div class="content-card"><h3>Schema 类型</h3>${schemaRows.length ? renderTable(["JSON-LD @type"], schemaRows) : "<p>未检测到 JSON-LD Schema。</p>"}</div>
-          <div class="content-card"><h3>FAQ Schema 问题</h3>${faqRows.length ? renderTable(["问题"], faqRows) : "<p>未检测到 FAQPage 问题。</p>"}</div>
         </div>
+        <div class="section-grid">
+          <div class="content-card"><h3>FAQ 问题汇总</h3>${faqRows.length ? renderTable(["问题"], faqRows) : "<p>未检测到 FAQPage 问题。可以手动粘贴页面正文继续提取问句。</p>"}</div>
+          <div class="content-card"><h3>标题结构明细</h3>${headingRows.length ? renderTable(["竞品", "层级", "标题"], headingRows) : legacyHeadingRows.length ? renderTable(["层级", "标题"], legacyHeadingRows) : "<p>未检测到 H1-H3。</p>"}</div>
+        </div>
+        ${errorRows.length ? `<div class="content-card"><h3>未成功抓取的 URL</h3>${renderTable(["URL", "原因"], errorRows)}</div>` : ""}
       ` : ""}
       <div class="content-card"><h3>人工复核框架</h3>${renderTable(["维度", "检查问题", "你的动作"], rows)}</div>
     </div>
@@ -1557,6 +1620,9 @@ function renderPlan() {
   };
 
   tabContent.innerHTML = (views[activeTab] || renderHubs)(currentPlan);
+  if (activeTab === "article") {
+    checkArticleConfig();
+  }
   const runButton = document.querySelector("#runSerpAnalysis");
   if (runButton) {
     runButton.addEventListener("click", runSerpAnalysis);
@@ -1630,16 +1696,40 @@ function renderPlan() {
   }
 }
 
+async function checkArticleConfig() {
+  if (articleConfig || articleConfigState === "loading") return;
+  articleConfigState = "loading";
+  try {
+    const response = await fetch("/api/openai-status");
+    const data = await response.json();
+    articleConfig = response.ok ? data : { configured: false };
+  } catch {
+    articleConfig = { configured: false };
+  }
+  articleConfigState = "ready";
+  if (activeTab === "article") renderPlan();
+}
+
 async function analyzeCompetitor() {
   if (!currentPlan || competitorState === "loading") return;
-  const input = document.querySelector("#competitorUrl");
-  const url = input?.value?.trim();
-  if (!url) {
-    showToast("请先输入竞品 URL", "warning");
+  const urlsInput = document.querySelector("#competitorUrls");
+  const manualLabelInput = document.querySelector("#competitorManualLabel");
+  const manualContentInput = document.querySelector("#competitorManualContent");
+  const urls = (urlsInput?.value || "")
+    .split(/\r?\n/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  const manualContent = manualContentInput?.value?.trim() || "";
+  const manualLabel = manualLabelInput?.value?.trim() || "";
+  if (!urls.length && !manualContent) {
+    showToast("请先输入竞品 URL，或粘贴竞品 HTML/正文", "warning");
     return;
   }
 
-  competitorInputUrl = url;
+  competitorInputUrl = urls.join("\n");
+  competitorManualLabel = manualLabel;
+  competitorManualContent = manualContent;
   competitorState = "loading";
   competitorMessage = "";
   renderPlan();
@@ -1649,14 +1739,15 @@ async function analyzeCompetitor() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        url,
+        urls,
+        manualPages: manualContent ? [{ label: manualLabel, content: manualContent }] : [],
         keyword: currentPlan.input.keyword
       })
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || data.detail || "Competitor analysis failed.");
     competitorAnalysis = data;
-    competitorInputUrl = data.competitor?.url || url;
+    competitorInputUrl = urls.join("\n");
     competitorState = "ready";
   } catch (error) {
     competitorAnalysis = null;
@@ -1703,6 +1794,8 @@ function loadProject(index) {
   competitorState = "idle";
   competitorMessage = "";
   competitorInputUrl = "";
+  competitorManualLabel = "";
+  competitorManualContent = "";
   activeTab = "hubs";
   tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
   showToast("项目已载入");
@@ -1983,6 +2076,8 @@ form.addEventListener("submit", event => {
   competitorState = "idle";
   competitorMessage = "";
   competitorInputUrl = "";
+  competitorManualLabel = "";
+  competitorManualContent = "";
   localStorage.setItem("lastSeoPlan", JSON.stringify(currentPlan.input));
   renderPlan();
 });

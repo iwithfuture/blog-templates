@@ -237,6 +237,33 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+.form-textarea {
+  width: 100%;
+  min-height: 150px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: #f8fafc;
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.form-textarea:hover {
+  border-color: var(--border-strong);
+  background: #fff;
+}
+
+.form-textarea:focus {
+  border-color: var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
 .segmented {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -333,8 +360,33 @@ select:focus {
   margin-top: 14px;
 }
 
+.compact-textarea {
+  min-height: 66px;
+}
+
 .url-analyzer .compact-action {
   margin-top: 0;
+}
+
+.manual-competitor {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.manual-competitor summary {
+  padding: 11px 12px;
+  color: #344054;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.manual-grid {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 12px;
 }
 
 .inline-error {

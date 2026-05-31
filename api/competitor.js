@@ -32,6 +32,13 @@ function matchAllText(html, regex, limit = 40) {
   return unique([...html.matchAll(regex)].map(match => stripTags(match[1]))).slice(0, limit);
 }
 
+function normalizeHeading(value = "") {
+  return decodeEntities(stripTags(value))
+    .replace(/^\d+[\.\、]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function safeJsonParse(value) {
   try {
     return JSON.parse(value);
@@ -107,6 +114,156 @@ function compareWithTarget(targetKeyword, competitor) {
   return suggestions.slice(0, 8);
 }
 
+function extractManualHeadings(content, limit = 60) {
+  const lines = content
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  const headings = [];
+
+  lines.forEach(line => {
+    const markdown = line.match(/^(#{1,3})\s+(.+)$/);
+    if (markdown) {
+      headings.push({ level: `H${markdown[1].length}`, text: normalizeHeading(markdown[2]) });
+      return;
+    }
+
+    const hLabel = line.match(/^(H[1-3])[:：]\s*(.+)$/i);
+    if (hLabel) {
+      headings.push({ level: hLabel[1].toUpperCase(), text: normalizeHeading(hLabel[2]) });
+    }
+  });
+
+  return headings.filter(item => item.text).slice(0, limit);
+}
+
+function extractTextFaq(content) {
+  const questions = content
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => !/^(H[1-3]|#{1,3})[:：\s]/i.test(line))
+    .filter(line => /[?？]$/.test(line) || /^(Q|问)[:：]/i.test(line))
+    .map(line => normalizeHeading(line.replace(/^(Q|问)[:：]\s*/i, "")));
+  return unique(questions).slice(0, 30);
+}
+
+function analyzeHtml({ html, parsedUrl, label, keyword, source }) {
+  const title = matchFirst(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+  const metaDescription = matchFirst(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i)
+    || matchFirst(html, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i);
+  const h1 = matchAllText(html, /<h1[^>]*>([\s\S]*?)<\/h1>/gi, 10).map(normalizeHeading);
+  const h2 = matchAllText(html, /<h2[^>]*>([\s\S]*?)<\/h2>/gi, 40).map(normalizeHeading);
+  const h3 = matchAllText(html, /<h3[^>]*>([\s\S]*?)<\/h3>/gi, 40).map(normalizeHeading);
+  const schemas = extractSchemas(html);
+  const headings = [
+    ...h1.map(text => ({ level: "H1", text })),
+    ...h2.map(text => ({ level: "H2", text })),
+    ...h3.map(text => ({ level: "H3", text }))
+  ].filter(item => item.text);
+
+  const competitor = {
+    url: parsedUrl?.toString() || "",
+    domain: parsedUrl?.hostname?.replace(/^www\./, "") || label || "手动粘贴内容",
+    label: label || parsedUrl?.hostname?.replace(/^www\./, "") || "手动粘贴内容",
+    source,
+    title,
+    metaDescription,
+    pageType: detectPageType(title, headings.map(item => item.text), schemas.types),
+    headings,
+    h1,
+    h2,
+    h3,
+    schemaTypes: schemas.types,
+    faqQuestions: schemas.faqQuestions
+  };
+
+  return {
+    ...competitor,
+    suggestions: compareWithTarget(keyword, competitor)
+  };
+}
+
+function analyzeManual({ content, label, keyword }) {
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(content);
+  if (looksLikeHtml) {
+    return analyzeHtml({
+      html: content,
+      parsedUrl: null,
+      label,
+      keyword,
+      source: "manual-html"
+    });
+  }
+
+  const headings = extractManualHeadings(content);
+  const faqQuestions = extractTextFaq(content);
+  const h1 = headings.filter(item => item.level === "H1").map(item => item.text);
+  const h2 = headings.filter(item => item.level === "H2").map(item => item.text);
+  const h3 = headings.filter(item => item.level === "H3").map(item => item.text);
+  const title = h1[0] || h2[0] || label || "手动粘贴内容";
+  const competitor = {
+    url: "",
+    domain: label || "手动粘贴内容",
+    label: label || "手动粘贴内容",
+    source: "manual-text",
+    title,
+    metaDescription: "",
+    pageType: detectPageType(title, headings.map(item => item.text), []),
+    headings,
+    h1,
+    h2,
+    h3,
+    schemaTypes: [],
+    faqQuestions
+  };
+
+  return {
+    ...competitor,
+    suggestions: compareWithTarget(keyword, competitor)
+  };
+}
+
+function frequency(items) {
+  const map = new Map();
+  items.forEach(item => {
+    const normalized = normalizeHeading(item).toLowerCase();
+    if (!normalized) return;
+    map.set(normalized, {
+      text: item,
+      count: (map.get(normalized)?.count || 0) + 1
+    });
+  });
+  return [...map.values()].sort((a, b) => b.count - a.count || a.text.localeCompare(b.text));
+}
+
+function compareCompetitors(keyword, competitors) {
+  const headings = competitors.flatMap(item => item.headings.filter(heading => heading.level !== "H1").map(heading => heading.text));
+  const schemaTypes = competitors.flatMap(item => item.schemaTypes);
+  const faqQuestions = competitors.flatMap(item => item.faqQuestions);
+  const pageTypes = competitors.map(item => item.pageType);
+  const topHeadings = frequency(headings).slice(0, 12);
+  const topSchemas = frequency(schemaTypes).slice(0, 12);
+  const topFaq = frequency(faqQuestions).slice(0, 12);
+  const dominantPageTypes = frequency(pageTypes).slice(0, 5);
+  const suggestions = [];
+
+  if (competitors.length > 1) suggestions.push(`已对比 ${competitors.length} 个竞品页面，优先参考重复出现的 H2/H3，而不是照抄单个页面。`);
+  if (topHeadings.length) suggestions.push(`高频内容角度：${topHeadings.slice(0, 5).map(item => item.text).join(" / ")}。`);
+  if (!topSchemas.some(item => /FAQPage/i.test(item.text))) suggestions.push("多数竞品没有 FAQPage，你可以补 FAQ Schema 抢 AEO/答案位。");
+  if (!topSchemas.some(item => /BreadcrumbList/i.test(item.text))) suggestions.push("竞品 BreadcrumbList 覆盖弱，你可以补面包屑 Schema 帮助搜索引擎理解层级。");
+  if (!headings.some(item => /案例|case|结果|客户|证明/i.test(item))) suggestions.push("竞品案例/经验证明不足，可以把真实案例、匿名场景或数据截图作为差异化资产。");
+  if (/服务|代运营|agency|service/i.test(keyword) && !headings.some(item => /价格|费用|报价|多少钱|cost|price/i.test(item))) suggestions.push("商业型关键词建议补价格/报价判断模块，竞品覆盖不足时更容易形成转化差异。");
+
+  return {
+    competitorCount: competitors.length,
+    topHeadings,
+    topSchemas,
+    topFaq,
+    dominantPageTypes,
+    suggestions: suggestions.slice(0, 8)
+  };
+}
+
 function fetchErrorMessage(status) {
   const messages = {
     401: "这个页面需要登录或授权，暂时无法直接抓取。",
@@ -124,66 +281,93 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "只支持 POST 请求。" });
   }
 
-  const { url, keyword = "" } = req.body || {};
-  if (!url) return res.status(400).json({ error: "请先输入竞品 URL。" });
+  const { url, urls, manualPages = [], keyword = "" } = req.body || {};
+  const urlList = unique([
+    ...(Array.isArray(urls) ? urls : []),
+    ...(url ? [url] : [])
+  ]).slice(0, 5);
+  const manualList = Array.isArray(manualPages)
+    ? manualPages.filter(item => String(item?.content || "").trim()).slice(0, 3)
+    : [];
 
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(url);
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error("Invalid protocol");
-  } catch {
-    return res.status(400).json({ error: "URL 格式不正确，请输入完整的 https:// 页面地址。" });
-  }
+  if (!urlList.length && !manualList.length) return res.status(400).json({ error: "请先输入竞品 URL，或粘贴竞品 HTML/正文。" });
 
   try {
-    const response = await fetch(parsedUrl.toString(), {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; iwithfuture-seo-workspace/1.0)",
-        "Accept": "text/html,application/xhtml+xml"
-      },
-      redirect: "follow"
+    const competitors = [];
+    const errors = [];
+
+    for (const targetUrl of urlList) {
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(targetUrl);
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error("Invalid protocol");
+      } catch {
+        errors.push({ url: targetUrl, error: "URL 格式不正确，请输入完整的 https:// 页面地址。" });
+        continue;
+      }
+
+      try {
+        const response = await fetch(parsedUrl.toString(), {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (compatible; iwithfuture-seo-workspace/1.0)",
+            "Accept": "text/html,application/xhtml+xml"
+          },
+          redirect: "follow"
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok) {
+          errors.push({
+            url: parsedUrl.toString(),
+            error: fetchErrorMessage(response.status),
+            detail: `HTTP ${response.status}`
+          });
+          continue;
+        }
+        if (!contentType.includes("text/html")) {
+          errors.push({ url: parsedUrl.toString(), error: "这个 URL 返回的不是 HTML 页面，无法提取 H2、FAQ 和 Schema。" });
+          continue;
+        }
+
+        const html = await response.text();
+        competitors.push(analyzeHtml({
+          html,
+          parsedUrl,
+          keyword,
+          source: "url"
+        }));
+      } catch (error) {
+        errors.push({
+          url: parsedUrl.toString(),
+          error: "竞品 URL 分析失败，请换一个页面 URL 后重试。",
+          detail: error.message
+        });
+      }
+    }
+
+    manualList.forEach((item, index) => {
+      competitors.push(analyzeManual({
+        content: String(item.content || ""),
+        label: String(item.label || "").trim() || `手动竞品 ${index + 1}`,
+        keyword
+      }));
     });
 
-    const contentType = response.headers.get("content-type") || "";
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: fetchErrorMessage(response.status),
-        detail: `HTTP ${response.status}`
+    if (!competitors.length) {
+      return res.status(422).json({
+        error: errors[0]?.error || "没有成功解析任何竞品页面。",
+        errors
       });
     }
-    if (!contentType.includes("text/html")) return res.status(415).json({ error: "这个 URL 返回的不是 HTML 页面，无法提取 H2、FAQ 和 Schema。" });
 
-    const html = await response.text();
-    const title = matchFirst(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-    const metaDescription = matchFirst(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i)
-      || matchFirst(html, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i);
-    const h1 = matchAllText(html, /<h1[^>]*>([\s\S]*?)<\/h1>/gi, 10);
-    const h2 = matchAllText(html, /<h2[^>]*>([\s\S]*?)<\/h2>/gi, 30);
-    const h3 = matchAllText(html, /<h3[^>]*>([\s\S]*?)<\/h3>/gi, 30);
-    const schemas = extractSchemas(html);
-    const headings = [
-      ...h1.map(text => ({ level: "H1", text })),
-      ...h2.map(text => ({ level: "H2", text })),
-      ...h3.map(text => ({ level: "H3", text }))
-    ];
-
-    const competitor = {
-      url: parsedUrl.toString(),
-      domain: parsedUrl.hostname.replace(/^www\./, ""),
-      title,
-      metaDescription,
-      pageType: detectPageType(title, headings.map(item => item.text), schemas.types),
-      headings,
-      h1,
-      h2,
-      h3,
-      schemaTypes: schemas.types,
-      faqQuestions: schemas.faqQuestions
-    };
+    const comparison = compareCompetitors(keyword, competitors);
 
     return res.status(200).json({
-      competitor,
-      suggestions: compareWithTarget(keyword, competitor)
+      competitor: competitors[0],
+      competitors,
+      errors,
+      comparison,
+      suggestions: comparison.suggestions
     });
   } catch (error) {
     return res.status(500).json({
