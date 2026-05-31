@@ -18,6 +18,9 @@ let currentArticle = null;
 let articleState = "idle";
 let articleMessage = "";
 let savedProjects = loadProjects();
+let competitorAnalysis = null;
+let competitorState = "idle";
+let competitorMessage = "";
 
 const pageTypeByIntent = {
   "定义认知": "百科/指南页",
@@ -1451,13 +1454,47 @@ function renderGap(plan) {
     escapeHtml(item.check),
     escapeHtml(item.action)
   ]);
+  const competitor = competitorAnalysis?.competitor;
+  const headingRows = competitor?.headings?.map(item => [
+    escapeHtml(item.level),
+    escapeHtml(item.text)
+  ]) || [];
+  const schemaRows = competitor?.schemaTypes?.map(item => [escapeHtml(item)]) || [];
+  const faqRows = competitor?.faqQuestions?.map(item => [escapeHtml(item)]) || [];
+  const suggestionRows = competitorAnalysis?.suggestions?.map(item => [escapeHtml(item)]) || [];
+
   return `
     <div class="brief-block">
       <div class="content-card serp-hero">
-        <h3>竞品内容差距框架</h3>
-        <p>先用 SERP 找到前 10 竞品，再用这张表逐项对比。后续可以升级成输入竞品 URL 后自动抓取 H2、FAQ、Schema。</p>
+        <h3>竞品内容差距分析</h3>
+        <p>输入竞品页面 URL，自动抓取 Title、Meta、H1-H3、FAQ Schema 和 JSON-LD 类型，再生成内容差距建议。</p>
+        <div class="url-analyzer">
+          <input id="competitorUrl" type="url" placeholder="https://competitor.com/example-page" value="${escapeHtml(competitor?.url || "")}" />
+          <button id="analyzeCompetitor" class="primary-action compact-action" type="button" ${competitorState === "loading" ? "disabled" : ""}>${competitorState === "loading" ? "分析中..." : "分析竞品 URL"}</button>
+        </div>
+        ${competitorState === "error" ? `<p class="inline-error">${escapeHtml(competitorMessage)}</p>` : ""}
       </div>
-      <div class="content-card">${renderTable(["维度", "检查问题", "你的动作"], rows)}</div>
+      ${competitor ? `
+        <div class="grid-cards">
+          <div class="metric-card"><span>竞品域名</span><strong>${escapeHtml(competitor.domain)}</strong></div>
+          <div class="metric-card"><span>页面类型</span><strong>${escapeHtml(competitor.pageType)}</strong></div>
+          <div class="metric-card"><span>标题数量</span><strong>${competitor.headings.length}</strong></div>
+        </div>
+        <div class="content-card">
+          <h3>页面基础信息</h3>
+          <p><strong>Title：</strong>${escapeHtml(competitor.title || "未检测到")}</p>
+          <p><strong>Meta Description：</strong>${escapeHtml(competitor.metaDescription || "未检测到")}</p>
+        </div>
+        <div class="section-grid">
+          <div class="content-card"><h3>内容标题结构</h3>${headingRows.length ? renderTable(["层级", "标题"], headingRows) : "<p>未检测到 H1-H3。</p>"}</div>
+          <div class="content-card"><h3>差距建议</h3>${suggestionRows.length ? renderTable(["建议"], suggestionRows) : "<p>暂未发现明显差距。</p>"}</div>
+        </div>
+        <div class="section-grid">
+          <div class="content-card"><h3>Schema 类型</h3>${schemaRows.length ? renderTable(["JSON-LD @type"], schemaRows) : "<p>未检测到 JSON-LD Schema。</p>"}</div>
+          <div class="content-card"><h3>FAQ Schema 问题</h3>${faqRows.length ? renderTable(["问题"], faqRows) : "<p>未检测到 FAQPage 问题。</p>"}</div>
+        </div>
+      ` : ""}
+      <div class="content-card"><h3>人工复核框架</h3>${renderTable(["维度", "检查问题", "你的动作"], rows)}</div>
     </div>
   `;
 }
@@ -1585,6 +1622,45 @@ function renderPlan() {
       showToast(copied ? "客户报告已复制" : "当前浏览器禁止自动复制", copied ? "success" : "warning");
     });
   }
+  const analyzeCompetitorButton = document.querySelector("#analyzeCompetitor");
+  if (analyzeCompetitorButton) {
+    analyzeCompetitorButton.addEventListener("click", analyzeCompetitor);
+  }
+}
+
+async function analyzeCompetitor() {
+  if (!currentPlan || competitorState === "loading") return;
+  const input = document.querySelector("#competitorUrl");
+  const url = input?.value?.trim();
+  if (!url) {
+    showToast("请先输入竞品 URL", "warning");
+    return;
+  }
+
+  competitorState = "loading";
+  competitorMessage = "";
+  renderPlan();
+
+  try {
+    const response = await fetch("/api/competitor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url,
+        keyword: currentPlan.input.keyword
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || data.detail || "Competitor analysis failed.");
+    competitorAnalysis = data;
+    competitorState = "ready";
+  } catch (error) {
+    competitorAnalysis = null;
+    competitorState = "error";
+    competitorMessage = error.message;
+  }
+
+  renderPlan();
 }
 
 function saveCurrentProject() {
@@ -1619,6 +1695,9 @@ function loadProject(index) {
   });
   selectedBriefKeyword = null;
   currentPlan = buildPlan(getFormData());
+  competitorAnalysis = null;
+  competitorState = "idle";
+  competitorMessage = "";
   activeTab = "hubs";
   tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
   showToast("项目已载入");
@@ -1895,6 +1974,9 @@ form.addEventListener("submit", event => {
   currentArticle = null;
   articleState = "idle";
   articleMessage = "";
+  competitorAnalysis = null;
+  competitorState = "idle";
+  competitorMessage = "";
   localStorage.setItem("lastSeoPlan", JSON.stringify(currentPlan.input));
   renderPlan();
 });

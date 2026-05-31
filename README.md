@@ -21,7 +21,7 @@
 - 客户项目本地保存
 - Landing Page 结构生成
 - SEO/GEO/AEO 网站审计框架
-- 竞品内容差距分析框架
+- 竞品 URL 抓取与内容差距分析
 - 客户报告模板
 
 当前版本的策略规划使用规则模板生成。SERP 分析通过 Vercel Serverless Function 调用 SerpApi；搜索量、竞争度、CPC 支持手填，后续可接 DataForSEO、Ahrefs、Semrush 或 Google Keyword Planner。
@@ -37,6 +37,12 @@ SERPAPI_KEY=你的 SerpApi API Key
 ```
 
 添加后重新部署，即可在前端 `SERP` Tab 中拉取 Google 前 10、People Also Ask 和相关搜索。
+
+## 竞品 URL 分析
+
+项目包含 Vercel Serverless Function：`/api/competitor`。
+
+在 `竞品差距` Tab 输入竞品页面 URL 后，工具会抓取页面 HTML，并提取 Title、Meta Description、H1-H3、JSON-LD Schema 类型和 FAQPage 问题。若竞品网站屏蔽服务器抓取，或页面内容必须通过浏览器 JavaScript 渲染，可能无法完整提取。
 
 ## 文章生成
 
