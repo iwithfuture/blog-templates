@@ -1386,7 +1386,7 @@ function renderProjects(plan) {
     escapeHtml(project.businessType),
     escapeHtml(project.status),
     escapeHtml(project.createdAt),
-    `<button class="inline-action" type="button" data-load-project="${index}">载入</button>`
+    `<div class="inline-actions"><button class="inline-action" type="button" data-load-project="${index}">载入</button><button class="inline-action danger" type="button" data-delete-project="${index}">删除</button></div>`
   ]);
   return `
     <div class="brief-block">
@@ -1562,6 +1562,9 @@ function renderPlan() {
   document.querySelectorAll("[data-load-project]").forEach(button => {
     button.addEventListener("click", () => loadProject(Number(button.dataset.loadProject)));
   });
+  document.querySelectorAll("[data-delete-project]").forEach(button => {
+    button.addEventListener("click", () => deleteProject(Number(button.dataset.deleteProject)));
+  });
   document.querySelectorAll("[data-add-spoke]").forEach(button => {
     button.addEventListener("click", () => addKeywordToSpokes(button.dataset.addSpoke));
   });
@@ -1619,6 +1622,17 @@ function loadProject(index) {
   activeTab = "hubs";
   tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
   showToast("项目已载入");
+  renderPlan();
+}
+
+function deleteProject(index) {
+  const project = savedProjects[index];
+  if (!project) return;
+  const confirmed = window.confirm(`确定删除项目「${project.clientName} / ${project.keyword}」吗？`);
+  if (!confirmed) return;
+  savedProjects = savedProjects.filter((_, itemIndex) => itemIndex !== index);
+  saveProjects();
+  showToast("客户项目已删除");
   renderPlan();
 }
 

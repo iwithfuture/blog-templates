@@ -1,24 +1,24 @@
 :root {
   color-scheme: light;
-  --bg: #eef2f5;
+  --bg: #eef3f7;
   --surface: #ffffff;
-  --surface-2: #f6f8fa;
-  --surface-3: #edf6f5;
+  --surface-2: #f7f9fc;
+  --surface-3: #edf7f8;
   --text: #111827;
-  --muted: #667085;
-  --muted-2: #8a94a3;
-  --border: #dbe3ea;
-  --border-strong: #c8d4de;
-  --accent: #0f766e;
-  --accent-strong: #115e59;
-  --accent-soft: #e4f4f2;
-  --ink: #172033;
+  --muted: #64748b;
+  --muted-2: #8b98a8;
+  --border: #d8e1ea;
+  --border-strong: #bfccd8;
+  --accent: #0e7490;
+  --accent-strong: #155e75;
+  --accent-soft: #e6f6f8;
+  --ink: #0f172a;
   --green: #1f7a4d;
   --amber: #a45f12;
   --red: #a13d45;
   --blue: #275d9f;
-  --shadow: 0 18px 45px rgba(17, 24, 39, 0.08);
-  --shadow-soft: 0 10px 24px rgba(17, 24, 39, 0.06);
+  --shadow: 0 24px 60px rgba(15, 23, 42, 0.09);
+  --shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.07);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Microsoft YaHei", sans-serif;
@@ -35,7 +35,8 @@ html {
 body {
   margin: 0;
   background:
-    linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(39, 93, 159, 0.05) 38%, rgba(238, 242, 245, 0.95)),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(239, 244, 248, 0.98)),
+    linear-gradient(135deg, rgba(14, 116, 144, 0.1), rgba(39, 93, 159, 0.06) 40%, rgba(238, 242, 245, 0.95)),
     var(--bg);
   color: var(--text);
 }
@@ -53,21 +54,21 @@ button {
 
 .app-shell {
   min-height: 100vh;
-  padding: 22px;
+  padding: 26px;
 }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 18px;
-  max-width: 1500px;
+  grid-template-columns: minmax(330px, 390px) minmax(0, 1fr);
+  gap: 20px;
+  max-width: 1560px;
   margin: 0 auto;
 }
 
 .input-panel,
 .output-panel {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(219, 227, 234, 0.92);
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(216, 225, 234, 0.92);
   border-radius: 8px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
@@ -75,9 +76,19 @@ button {
 
 .input-panel {
   position: sticky;
-  top: 22px;
+  top: 26px;
   align-self: start;
-  padding: 22px;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.input-panel::before,
+.output-panel::before {
+  content: "";
+  display: block;
+  height: 3px;
+  margin: -24px -24px 21px;
+  background: linear-gradient(90deg, var(--accent), var(--blue), #b7791f);
 }
 
 .brand-row {
@@ -95,7 +106,7 @@ button {
   place-items: center;
   border: 1px solid rgba(15, 118, 110, 0.24);
   border-radius: 8px;
-  background: linear-gradient(145deg, #0f766e, #1d4f73);
+  background: linear-gradient(145deg, #0f172a, #0e7490);
   color: #fff;
   font-size: 13px;
   font-weight: 900;
@@ -104,7 +115,7 @@ button {
 
 .eyebrow {
   margin: 0 0 5px;
-  color: var(--accent);
+  color: var(--accent-strong);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0;
@@ -193,9 +204,9 @@ select {
   width: 100%;
   min-height: 43px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 10px 12px;
-  background: #fbfcfd;
+  background: #f8fafc;
   color: var(--text);
   outline: none;
   transition:
@@ -266,8 +277,8 @@ select:focus {
   gap: 8px;
   min-height: 47px;
   border: 0;
-  border-radius: 7px;
-  background: var(--ink);
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--ink), var(--accent-strong));
   color: #fff;
   font-weight: 900;
   box-shadow: 0 14px 24px rgba(23, 32, 51, 0.18);
@@ -278,8 +289,8 @@ select:focus {
 }
 
 .primary-action:hover {
-  background: #0f766e;
-  box-shadow: 0 16px 28px rgba(15, 118, 110, 0.22);
+  background: linear-gradient(135deg, #111827, var(--accent));
+  box-shadow: 0 16px 30px rgba(14, 116, 144, 0.24);
   transform: translateY(-1px);
 }
 
@@ -304,7 +315,7 @@ select:focus {
   padding: 14px;
   border: 1px solid rgba(15, 118, 110, 0.17);
   border-radius: 8px;
-  background: linear-gradient(180deg, #f7fbfb, #edf6f5);
+  background: linear-gradient(180deg, #f8fcfd, #edf7f8);
 }
 
 .side-note strong {
@@ -340,8 +351,9 @@ select:focus {
 
 .output-panel {
   min-height: calc(100vh - 44px);
-  padding: 22px;
+  padding: 24px;
   overflow: hidden;
+  position: relative;
 }
 
 .output-toolbar {
@@ -349,7 +361,11 @@ select:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 18px;
+  margin: -2px 0 16px;
+  border: 1px solid rgba(216, 225, 234, 0.85);
+  border-radius: 8px;
+  padding: 16px;
+  background: linear-gradient(135deg, #ffffff, #f6fafb);
 }
 
 .result-meta {
@@ -370,7 +386,7 @@ select:focus {
   gap: 7px;
   min-height: 39px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 8px 12px;
   background: #fff;
   color: #243244;
@@ -408,6 +424,17 @@ select:focus {
   white-space: nowrap;
 }
 
+.inline-action.danger {
+  border-color: rgba(161, 61, 69, 0.25);
+  background: #fff5f5;
+  color: var(--red);
+}
+
+.inline-action.danger:hover {
+  border-color: rgba(161, 61, 69, 0.45);
+  background: #fde7e9;
+}
+
 .inline-action:hover {
   border-color: rgba(15, 118, 110, 0.45);
   background: #d7eeeb;
@@ -430,9 +457,9 @@ select:focus {
   gap: 10px;
   overflow-x: auto;
   padding: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(216, 225, 234, 0.9);
   border-radius: 8px;
-  background: #f7f9fb;
+  background: #eef3f7;
 }
 
 .tab-group {
@@ -444,7 +471,8 @@ select:focus {
   border: 1px solid rgba(219, 227, 234, 0.78);
   border-radius: 8px;
   padding: 9px;
-  background: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .tab-group > span {
@@ -489,9 +517,9 @@ select:focus {
 }
 
 .tab.is-active {
-  background: #fff;
-  color: var(--accent-strong);
-  border-color: rgba(15, 118, 110, 0.18);
+  background: var(--ink);
+  color: #fff;
+  border-color: rgba(15, 23, 42, 0.2);
   box-shadow: var(--shadow-soft);
 }
 
@@ -510,7 +538,7 @@ select:focus {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.035);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);
 }
 
 .metric-card {
@@ -524,7 +552,7 @@ select:focus {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: var(--accent);
+  background: linear-gradient(180deg, var(--accent), var(--blue));
 }
 
 .metric-card span {
@@ -604,7 +632,7 @@ th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #f3f7f8;
+  background: #f1f6f8;
   color: #2f3b4c;
   font-weight: 900;
   white-space: nowrap;
@@ -818,6 +846,11 @@ tr:last-child td {
   .input-panel,
   .output-panel {
     padding: 15px;
+  }
+
+  .input-panel::before,
+  .output-panel::before {
+    margin: -15px -15px 15px;
   }
 
   .brand-row {
