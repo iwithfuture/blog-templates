@@ -18,6 +18,11 @@
 - 内容质量评分
 - 工作流导出建议
 - OpenAI 文章初稿生成（需要 `OPENAI_API_KEY`）
+- 客户项目本地保存
+- Landing Page 结构生成
+- SEO/GEO/AEO 网站审计框架
+- 竞品内容差距分析框架
+- 客户报告模板
 
 当前版本的策略规划使用规则模板生成。SERP 分析通过 Vercel Serverless Function 调用 SerpApi；搜索量、竞争度、CPC 支持手填，后续可接 DataForSEO、Ahrefs、Semrush 或 Google Keyword Planner。
 

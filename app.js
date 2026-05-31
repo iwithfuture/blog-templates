@@ -17,6 +17,7 @@ let expansionMessage = "";
 let currentArticle = null;
 let articleState = "idle";
 let articleMessage = "";
+let savedProjects = loadProjects();
 
 const pageTypeByIntent = {
   "定义认知": "百科/指南页",
@@ -42,6 +43,19 @@ const schemaByPageType = {
 
 function slugify(value) {
   return encodeURIComponent(value.trim().toLowerCase().replace(/\s+/g, "-"));
+}
+
+function loadProjects() {
+  try {
+    return JSON.parse(localStorage.getItem("seoGrowthProjects") || "[]");
+  } catch {
+    localStorage.removeItem("seoGrowthProjects");
+    return [];
+  }
+}
+
+function saveProjects() {
+  localStorage.setItem("seoGrowthProjects", JSON.stringify(savedProjects));
 }
 
 function getFormData() {
@@ -504,6 +518,70 @@ function buildWorkflow(input) {
       "Internal Links",
       "Schema"
     ]
+  };
+}
+
+function buildLandingPage(plan) {
+  const input = plan.input;
+  const serviceName = plan.priority.find(item => item.intent === "交易转化")?.keyword || `${input.keyword}服务`;
+  return {
+    title: `${serviceName}｜${input.brandName}`,
+    url: `/${slugify(serviceName)}/`,
+    sections: [
+      { section: "Hero 首屏", goal: "3 秒内说清服务和结果", content: `H1：${serviceName}。副标题说明服务对象：${input.audience}。主 CTA：${input.coreOffer}。` },
+      { section: "适合谁", goal: "筛选客户", content: `列出适合 ${input.audience} 的 4-6 种场景，也说明不适合的人群。` },
+      { section: "痛点诊断", goal: "让用户觉得你懂他", content: `围绕 ${input.keyword} 没效果、成本高、转化差、缺人手等痛点展开。` },
+      { section: "服务内容", goal: "说明交付范围", content: "用表格列出策略、内容、技术、转化、复盘等服务模块。" },
+      { section: "执行流程", goal: "降低不确定性", content: "诊断 -> 策略 -> 执行 -> 周报/月报 -> 调整。" },
+      { section: "案例/证明", goal: "建立信任", content: input.proofPoints || "放匿名案例、行业经验、截图、客户评价或过程证明。" },
+      { section: "价格因素", goal: "承接商业调查", content: "不一定公开报价，但要说明影响价格的因素和预算区间判断方法。" },
+      { section: "FAQ", goal: "处理异议", content: plan.faq.slice(0, 6).join(" / ") },
+      { section: "最终 CTA", goal: "转化", content: `再次引导：${input.coreOffer}。` }
+    ],
+    schema: ["Service", "Organization", "BreadcrumbList", "FAQPage"],
+    assets: ["客户案例截图", "流程图", "服务范围表", "报价影响因素表", "FAQ"]
+  };
+}
+
+function buildAuditFramework(plan) {
+  return [
+    { category: "索引", item: "robots.txt / sitemap.xml / canonical / noindex", priority: "高", evidence: "Search Console 或手动检查", output: "索引问题清单" },
+    { category: "页面基础", item: "Title、Meta Description、唯一 H1、URL 结构", priority: "高", evidence: "抓取页面或手动抽查", output: "页面元信息优化表" },
+    { category: "内容质量", item: "搜索意图、首段答案、H2/H3、FAQ、表格、案例", priority: "高", evidence: "对照 SERP 和 Brief", output: "内容改写建议" },
+    { category: "内链", item: "Hub -> Spoke、Spoke -> Hub、转化页入口", priority: "高", evidence: "站内链接结构", output: "内链补充计划" },
+    { category: "结构化数据", item: "Organization、Article、Breadcrumb、FAQ、Service", priority: "中高", evidence: "Rich Results Test", output: "Schema 修复清单" },
+    { category: "速度体验", item: "移动端、Core Web Vitals、图片体积、JS/CSS", priority: "中高", evidence: "PageSpeed Insights", output: "性能优化建议" },
+    { category: "转化", item: "CTA、表单、联系方式、案例、信任元素", priority: "高", evidence: "页面首屏和转化路径", output: "转化优化清单" },
+    { category: "GEO/AEO", item: "作者页、品牌实体、直接答案、第三方提及", priority: "中", evidence: "站内外品牌一致性", output: "可信度建设计划" }
+  ];
+}
+
+function buildGapFramework(plan) {
+  return [
+    { dimension: "页面类型", check: "竞品是服务页、博客、工具页还是列表页？", action: "用 SERP 主导类型校准你的页面类型。" },
+    { dimension: "标题角度", check: "竞品标题是否集中在价格、教程、服务、对比？", action: "补一个更贴近搜索意图的 H1 和 Meta Title。" },
+    { dimension: "内容结构", check: "竞品覆盖了哪些 H2/H3？", action: "列出缺失问题，补进正文或 FAQ。" },
+    { dimension: "可信证明", check: "竞品是否有案例、作者、数据、评价？", action: "补充你的经验、案例和可验证证据。" },
+    { dimension: "转化路径", check: "竞品 CTA 是咨询、报价、下载还是注册？", action: `围绕「${plan.input.coreOffer}」做更具体 CTA。` },
+    { dimension: "Schema", check: "竞品是否有 Article/FAQ/Service/Breadcrumb？", action: "把页面类型对应的 Schema 加完整。" },
+    { dimension: "内容资产", check: "竞品是否有模板、清单、工具或报告？", action: "做一个可下载资源提升引用和转化。" }
+  ];
+}
+
+function buildClientReport(plan) {
+  return {
+    title: `${plan.input.brandName}｜${plan.input.keyword} SEO/GEO/AEO 月度报告`,
+    sections: [
+      "本月目标：围绕核心 Hub 建立主题权威，并推进高商业价值页面。",
+      `核心 Hub：${plan.input.keyword}`,
+      `本月优先内容：${plan.priority.slice(0, 5).map(item => item.keyword).join("、")}`,
+      `主要 CTA：${plan.input.coreOffer}`,
+      "已完成工作：内容规划、SERP 分析、页面 Brief、内链规划、发布节奏。",
+      "下月计划：发布第一批页面，补充案例和 FAQ，建立 Hub-Spoke 内链。",
+      "需要客户配合：确认服务范围、提供案例/截图/报价口径、确认作者信息。",
+      "风险提醒：搜索量和竞争度仍需第三方关键词数据库或 GSC 数据校准。"
+    ],
+    metrics: ["发布页面数", "索引页面数", "展示量", "点击量", "CTR", "平均排名", "询盘数", "转化率"]
   };
 }
 
@@ -1276,6 +1354,113 @@ function renderWorkflow(plan) {
   `;
 }
 
+function renderProjects(plan) {
+  const rows = savedProjects.map((project, index) => [
+    escapeHtml(project.clientName),
+    escapeHtml(project.keyword),
+    escapeHtml(project.market),
+    escapeHtml(project.businessType),
+    escapeHtml(project.status),
+    escapeHtml(project.createdAt),
+    `<button class="inline-action" type="button" data-load-project="${index}">载入</button>`
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="content-card serp-hero">
+        <h3>客户项目框架</h3>
+        <p>把当前输入保存成一个客户项目，后续可以围绕不同客户反复生成内容地图、落地页、审计和报告。</p>
+        <button id="saveProject" class="primary-action compact-action" type="button"><span aria-hidden="true">＋</span>保存当前项目</button>
+      </div>
+      <div class="content-card">
+        <h3>已保存项目</h3>
+        ${rows.length ? renderTable(["客户/品牌", "核心词", "市场", "业务类型", "状态", "创建时间", "操作"], rows) : "<p>还没有保存项目。先在左侧填好客户信息，再点击保存当前项目。</p>"}
+      </div>
+    </div>
+  `;
+}
+
+function renderLanding(plan) {
+  const landing = buildLandingPage(plan);
+  const sectionRows = landing.sections.map(item => [
+    escapeHtml(item.section),
+    escapeHtml(item.goal),
+    escapeHtml(item.content)
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="grid-cards">
+        <div class="metric-card"><span>页面标题</span><strong>${escapeHtml(landing.title)}</strong></div>
+        <div class="metric-card"><span>建议 URL</span><strong>${escapeHtml(landing.url)}</strong></div>
+        <div class="metric-card"><span>主 CTA</span><strong>${escapeHtml(plan.input.coreOffer)}</strong></div>
+      </div>
+      <div class="content-card"><h3>Landing Page 结构</h3>${renderTable(["模块", "作用", "内容建议"], sectionRows)}</div>
+      <div class="section-grid">
+        <div class="content-card"><h3>建议 Schema</h3><ul class="brief-list">${landing.schema.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+        <div class="content-card"><h3>需要素材</h3><ul class="brief-list">${landing.assets.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAudit(plan) {
+  const rows = buildAuditFramework(plan).map(item => [
+    escapeHtml(item.category),
+    escapeHtml(item.item),
+    badge(item.priority),
+    escapeHtml(item.evidence),
+    escapeHtml(item.output)
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="content-card serp-hero">
+        <h3>SEO/GEO/AEO 网站审计框架</h3>
+        <p>这是给客户做建站或推广前的基础审计清单。当前版本是手动审计框架，后续可接 PageSpeed、GSC、爬虫和站点扫描。</p>
+      </div>
+      <div class="content-card">${renderTable(["分类", "检查项", "优先级", "证据来源", "交付物"], rows)}</div>
+    </div>
+  `;
+}
+
+function renderGap(plan) {
+  const rows = buildGapFramework(plan).map(item => [
+    escapeHtml(item.dimension),
+    escapeHtml(item.check),
+    escapeHtml(item.action)
+  ]);
+  return `
+    <div class="brief-block">
+      <div class="content-card serp-hero">
+        <h3>竞品内容差距框架</h3>
+        <p>先用 SERP 找到前 10 竞品，再用这张表逐项对比。后续可以升级成输入竞品 URL 后自动抓取 H2、FAQ、Schema。</p>
+      </div>
+      <div class="content-card">${renderTable(["维度", "检查问题", "你的动作"], rows)}</div>
+    </div>
+  `;
+}
+
+function renderReport(plan) {
+  const report = buildClientReport(plan);
+  const markdown = [
+    `# ${report.title}`,
+    "",
+    "## 摘要",
+    ...report.sections.map(item => `- ${item}`),
+    "",
+    "## 建议追踪指标",
+    ...report.metrics.map(item => `- ${item}`)
+  ].join("\n");
+  return `
+    <div class="brief-block">
+      <div class="content-card serp-hero">
+        <h3>客户报告模板</h3>
+        <p>适合月度汇报、项目启动报告或阶段复盘。可以先复制给客户，后续再接 GSC 数据自动填指标。</p>
+        <button id="copyReport" class="ghost-button" type="button"><span aria-hidden="true">⧉</span>复制报告</button>
+      </div>
+      <pre class="article-preview">${escapeHtml(markdown)}</pre>
+    </div>
+  `;
+}
+
 function renderPlan() {
   if (!currentPlan) {
     tabContent.innerHTML = `<div class="empty-state">输入核心词后生成内容规划</div>`;
@@ -1300,7 +1485,12 @@ function renderPlan() {
     calendar: renderCalendar,
     assets: renderAssets,
     score: renderScore,
-    workflow: renderWorkflow
+    workflow: renderWorkflow,
+    projects: renderProjects,
+    landing: renderLanding,
+    audit: renderAudit,
+    gap: renderGap,
+    report: renderReport
   };
 
   tabContent.innerHTML = (views[activeTab] || renderHubs)(currentPlan);
@@ -1335,6 +1525,68 @@ function renderPlan() {
       showToast("Markdown 已生成，浏览器会开始下载");
     });
   }
+  const saveProjectButton = document.querySelector("#saveProject");
+  if (saveProjectButton) {
+    saveProjectButton.addEventListener("click", saveCurrentProject);
+  }
+  document.querySelectorAll("[data-load-project]").forEach(button => {
+    button.addEventListener("click", () => loadProject(Number(button.dataset.loadProject)));
+  });
+  const copyReportButton = document.querySelector("#copyReport");
+  if (copyReportButton) {
+    copyReportButton.addEventListener("click", async () => {
+      const report = buildClientReport(currentPlan);
+      const markdown = [
+        `# ${report.title}`,
+        "",
+        "## 摘要",
+        ...report.sections.map(item => `- ${item}`),
+        "",
+        "## 建议追踪指标",
+        ...report.metrics.map(item => `- ${item}`)
+      ].join("\n");
+      const copied = await copyText(markdown);
+      showToast(copied ? "客户报告已复制" : "当前浏览器禁止自动复制", copied ? "success" : "warning");
+    });
+  }
+}
+
+function saveCurrentProject() {
+  if (!currentPlan) return;
+  const project = {
+    ...currentPlan.input,
+    clientName: currentPlan.input.brandName,
+    status: "策略规划中",
+    createdAt: new Date().toLocaleDateString("zh-CN")
+  };
+  savedProjects = [
+    project,
+    ...savedProjects.filter(item => !(item.clientName === project.clientName && item.keyword === project.keyword))
+  ].slice(0, 20);
+  saveProjects();
+  showToast("客户项目已保存到本地");
+  renderPlan();
+}
+
+function loadProject(index) {
+  const project = savedProjects[index];
+  if (!project) return;
+  Object.entries(project).forEach(([key, value]) => {
+    const element = form.elements.namedItem(key);
+    if (!element || value === undefined || value === null) return;
+    if (key === "depth") {
+      const radio = form.querySelector(`input[name="depth"][value="${CSS.escape(value)}"]`);
+      if (radio) radio.checked = true;
+    } else if ("value" in element) {
+      element.value = value;
+    }
+  });
+  selectedBriefKeyword = null;
+  currentPlan = buildPlan(getFormData());
+  activeTab = "hubs";
+  tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
+  showToast("项目已载入");
+  renderPlan();
 }
 
 async function runSerpAnalysis() {
