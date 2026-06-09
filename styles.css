@@ -541,6 +541,30 @@ select:focus {
   gap: 6px;
 }
 
+.calendar-control {
+  min-width: 132px;
+  min-height: 34px;
+  border-radius: 7px;
+  padding: 6px 8px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.calendar-table-card table {
+  min-width: 1180px;
+}
+
+.calendar-table-card td:nth-child(1) {
+  min-width: 180px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.calendar-table-card td:nth-child(7) .calendar-control,
+.calendar-table-card td:nth-child(8) .calendar-control {
+  min-width: 190px;
+}
+
 .tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(220px, 1fr));

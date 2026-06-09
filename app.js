@@ -18,6 +18,7 @@ let currentArticle = null;
 let articleState = "idle";
 let articleMessage = "";
 let savedProjects = loadProjects();
+let contentCalendar = loadContentCalendar();
 let competitorAnalysis = null;
 let competitorState = "idle";
 let competitorMessage = "";
@@ -49,6 +50,8 @@ const schemaByPageType = {
   "模板/清单页": ["CreativeWork", "BlogPosting", "BreadcrumbList", "FAQPage"]
 };
 
+const contentStatuses = ["待写", "写作中", "草稿", "待发布", "已发布", "待更新"];
+
 function slugify(value) {
   return encodeURIComponent(value.trim().toLowerCase().replace(/\s+/g, "-"));
 }
@@ -64,6 +67,19 @@ function loadProjects() {
 
 function saveProjects() {
   localStorage.setItem("seoGrowthProjects", JSON.stringify(savedProjects));
+}
+
+function loadContentCalendar() {
+  try {
+    return JSON.parse(localStorage.getItem("seoContentCalendar") || "[]");
+  } catch {
+    localStorage.removeItem("seoContentCalendar");
+    return [];
+  }
+}
+
+function saveContentCalendar() {
+  localStorage.setItem("seoContentCalendar", JSON.stringify(contentCalendar));
 }
 
 function getFormData() {
@@ -781,6 +797,10 @@ function addSpokeButton(keyword, use) {
   return `<button class="inline-action secondary" type="button" data-add-spoke="${escapeHtml(keyword)}">加入 Spoke</button>`;
 }
 
+function calendarButton(keyword) {
+  return `<button class="inline-action secondary" type="button" data-add-calendar="${escapeHtml(keyword)}">加入日历</button>`;
+}
+
 function selectBrief(keyword) {
   if (!currentPlan) return;
   selectedBriefKeyword = keyword;
@@ -812,6 +832,115 @@ function addKeywordToSpokes(keyword) {
   renderPlan();
 }
 
+function calendarId(projectKeyword, keyword) {
+  return `${projectKeyword}::${keyword}`.toLowerCase();
+}
+
+function isoDateAfter(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function nextPublishSlot(index) {
+  const today = new Date();
+  const slots = [];
+  for (let offset = 1; slots.length <= index; offset += 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + offset);
+    const day = date.getDay();
+    if (day === 2 || day === 5) {
+      slots.push(date.toISOString().slice(0, 10));
+    }
+  }
+  return slots[index] || isoDateAfter(7);
+}
+
+function makeCalendarItem(sourceItem, plan, index = 0) {
+  const id = calendarId(plan.input.keyword, sourceItem.keyword);
+  return {
+    id,
+    projectKeyword: plan.input.keyword,
+    title: sourceItem.keyword,
+    hub: sourceItem.hub,
+    intent: sourceItem.intent,
+    pageType: sourceItem.pageType,
+    status: "待写",
+    owner: plan.input.authorName || "",
+    plannedDate: nextPublishSlot(index),
+    publishedDate: "",
+    url: "",
+    notes: sourceItem.cta || "",
+    createdAt: new Date().toISOString()
+  };
+}
+
+function addCalendarItem(keyword) {
+  if (!currentPlan) return;
+  const sourceItem = findContentItem(keyword);
+  if (!sourceItem) return;
+  const id = calendarId(currentPlan.input.keyword, sourceItem.keyword);
+  if (contentCalendar.some(item => item.id === id)) {
+    showToast("这篇内容已经在内容日历里了", "warning");
+    activeTab = "contentCalendar";
+    tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
+    renderPlan();
+    return;
+  }
+
+  const projectCount = contentCalendar.filter(item => item.projectKeyword === currentPlan.input.keyword).length;
+  contentCalendar = [makeCalendarItem(sourceItem, currentPlan, projectCount), ...contentCalendar];
+  saveContentCalendar();
+  showToast(`已加入内容日历：${sourceItem.keyword}`);
+  activeTab = "contentCalendar";
+  tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
+  renderPlan();
+}
+
+function addPriorityToCalendar() {
+  if (!currentPlan) return;
+  const existingIds = new Set(contentCalendar.map(item => item.id));
+  const projectCount = contentCalendar.filter(item => item.projectKeyword === currentPlan.input.keyword).length;
+  const additions = currentPlan.priority
+    .filter(item => !existingIds.has(calendarId(currentPlan.input.keyword, item.keyword)))
+    .map((item, index) => makeCalendarItem(item, currentPlan, projectCount + index));
+
+  if (!additions.length) {
+    showToast("优先内容已经全部在日历里了", "warning");
+    return;
+  }
+
+  contentCalendar = [...additions, ...contentCalendar];
+  saveContentCalendar();
+  showToast(`已加入 ${additions.length} 篇优先内容`);
+  activeTab = "contentCalendar";
+  tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
+  renderPlan();
+}
+
+function updateCalendarItem(id, field, value) {
+  contentCalendar = contentCalendar.map(item => {
+    if (item.id !== id) return item;
+    const next = { ...item, [field]: value };
+    if (field === "status" && value === "已发布" && !next.publishedDate) {
+      next.publishedDate = new Date().toISOString().slice(0, 10);
+    }
+    return next;
+  });
+  saveContentCalendar();
+}
+
+function deleteCalendarItem(id) {
+  const item = contentCalendar.find(entry => entry.id === id);
+  if (!item) return;
+  const confirmed = window.confirm(`确定从内容日历删除「${item.title}」吗？`);
+  if (!confirmed) return;
+  contentCalendar = contentCalendar.filter(entry => entry.id !== id);
+  saveContentCalendar();
+  showToast("内容日历项已删除");
+  renderPlan();
+}
+
 function renderHubs(plan) {
   const metrics = `
     <div class="grid-cards">
@@ -840,7 +969,7 @@ function renderSpokes(plan) {
     badge(item.businessValue),
     badge(item.priority),
     escapeHtml(item.cta),
-    briefButton(item.keyword)
+    `<div class="inline-actions">${briefButton(item.keyword)}${calendarButton(item.keyword)}</div>`
   ]);
   return `<div class="content-card"><h3>Spoke 内容地图</h3>${renderTable(["Hub", "Spoke", "搜索意图", "页面类型", "商业价值", "优先级", "CTA", "操作"], rows)}</div>`;
 }
@@ -854,9 +983,18 @@ function renderPriority(plan) {
     escapeHtml(item.pageType),
     badge(item.businessValue),
     escapeHtml(item.cta),
-    briefButton(item.keyword)
+    `<div class="inline-actions">${briefButton(item.keyword)}${calendarButton(item.keyword)}</div>`
   ]);
-  return `<div class="content-card"><h3>第一批优先内容</h3><p>这批内容优先考虑商业价值、痛点强度、可转化性和主题权威，不等同于真实搜索量排序。发布前仍建议用 Keyword Planner、Ahrefs、SEMrush 或 Search Console 校准。</p>${renderTable(["顺序", "关键词/标题", "Hub", "搜索意图", "页面类型", "商业价值", "CTA", "操作"], rows)}</div>`;
+  return `
+    <div class="brief-block">
+      <div class="content-card serp-hero">
+        <h3>第一批优先内容</h3>
+        <p>这批内容优先考虑商业价值、痛点强度、可转化性和主题权威，不等同于真实搜索量排序。发布前仍建议用 Keyword Planner、Ahrefs、SEMrush 或 Search Console 校准。</p>
+        <button id="addPriorityCalendar" class="primary-action compact-action" type="button">加入内容日历</button>
+      </div>
+      <div class="content-card">${renderTable(["顺序", "关键词/标题", "Hub", "搜索意图", "页面类型", "商业价值", "CTA", "操作"], rows)}</div>
+    </div>
+  `;
 }
 
 function renderSerp(plan) {
@@ -1350,6 +1488,76 @@ function renderCalendar(plan) {
   `;
 }
 
+function statusSelect(item) {
+  const options = contentStatuses
+    .map(status => `<option value="${escapeHtml(status)}" ${item.status === status ? "selected" : ""}>${escapeHtml(status)}</option>`)
+    .join("");
+  return `<select class="calendar-control" data-calendar-id="${escapeHtml(item.id)}" data-calendar-field="status">${options}</select>`;
+}
+
+function calendarInput(item, field, type = "text", placeholder = "") {
+  return `<input class="calendar-control" type="${type}" value="${escapeHtml(item[field] || "")}" placeholder="${escapeHtml(placeholder)}" data-calendar-id="${escapeHtml(item.id)}" data-calendar-field="${field}" />`;
+}
+
+function renderContentCalendar(plan) {
+  const projectItems = contentCalendar
+    .filter(item => item.projectKeyword === plan.input.keyword)
+    .sort((a, b) => (a.plannedDate || "9999-12-31").localeCompare(b.plannedDate || "9999-12-31"));
+  const publishedCount = projectItems.filter(item => item.status === "已发布").length;
+  const draftCount = projectItems.filter(item => item.status === "草稿" || item.status === "待发布").length;
+  const inProgressCount = projectItems.filter(item => item.status === "待写" || item.status === "写作中").length;
+
+  const rows = projectItems.map(item => [
+    escapeHtml(item.title),
+    escapeHtml(item.hub || ""),
+    statusSelect(item),
+    calendarInput(item, "owner", "text", "负责人"),
+    calendarInput(item, "plannedDate", "date"),
+    calendarInput(item, "publishedDate", "date"),
+    calendarInput(item, "url", "url", "发布后填 URL"),
+    calendarInput(item, "notes", "text", "备注"),
+    `<div class="inline-actions">${briefButton(item.title)}<button class="inline-action danger" type="button" data-delete-calendar="${escapeHtml(item.id)}">删除</button></div>`
+  ]);
+
+  return `
+    <div class="brief-block">
+      <div class="grid-cards">
+        <div class="metric-card"><span>当前项目内容</span><strong>${projectItems.length}</strong></div>
+        <div class="metric-card"><span>待写/写作中</span><strong>${inProgressCount}</strong></div>
+        <div class="metric-card"><span>草稿/待发布</span><strong>${draftCount}</strong></div>
+        <div class="metric-card"><span>已发布</span><strong>${publishedCount}</strong></div>
+      </div>
+      <div class="content-card serp-hero">
+        <h3>内容日历 / 状态管理</h3>
+        <p>用于管理从选题到发布的执行状态。建议先把第一批优先内容加入日历，再按每周 2 篇安排计划发布日期。</p>
+        <div class="toolbar-actions article-actions">
+          <button id="addPriorityCalendar" class="primary-action compact-action" type="button">加入优先内容</button>
+          <button id="downloadCalendar" class="ghost-button" type="button">下载日历 CSV</button>
+        </div>
+      </div>
+      ${projectItems.length ? `
+        <div class="content-card calendar-table-card">
+          <h3>${escapeHtml(plan.input.keyword)} 内容生产看板</h3>
+          ${renderTable(["标题", "Hub", "状态", "负责人", "计划发布", "实际发布", "URL", "备注", "操作"], rows)}
+        </div>
+      ` : `
+        <div class="empty-state">还没有内容日历项。先点击“加入优先内容”，或在 Spoke / 优先内容里单篇加入。</div>
+      `}
+      <div class="content-card">
+        <h3>建议状态定义</h3>
+        <ul class="brief-list">
+          <li>待写：已确定选题，还没有开始写。</li>
+          <li>写作中：正在整理资料、写初稿或改稿。</li>
+          <li>草稿：已放入 CMS 草稿箱，不算公开发布。</li>
+          <li>待发布：已审核，等待排期上线。</li>
+          <li>已发布：页面已公开，填写 URL 和实际发布日期。</li>
+          <li>待更新：已发布内容需要补数据、改标题或增加 FAQ/内链。</li>
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
 function renderAssets(plan) {
   const rows = plan.assets.map(item => [
     escapeHtml(item.keyword),
@@ -1608,6 +1816,7 @@ function renderPlan() {
     eeat: renderEeat,
     schema: renderSchema,
     links: renderLinks,
+    contentCalendar: renderContentCalendar,
     calendar: renderCalendar,
     assets: renderAssets,
     score: renderScore,
@@ -1673,6 +1882,29 @@ function renderPlan() {
   document.querySelectorAll("[data-add-spoke]").forEach(button => {
     button.addEventListener("click", () => addKeywordToSpokes(button.dataset.addSpoke));
   });
+  document.querySelectorAll("[data-add-calendar]").forEach(button => {
+    button.addEventListener("click", () => addCalendarItem(button.dataset.addCalendar));
+  });
+  const addPriorityCalendarButton = document.querySelector("#addPriorityCalendar");
+  if (addPriorityCalendarButton) {
+    addPriorityCalendarButton.addEventListener("click", addPriorityToCalendar);
+  }
+  document.querySelectorAll("[data-calendar-field]").forEach(field => {
+    field.addEventListener("change", () => {
+      updateCalendarItem(field.dataset.calendarId, field.dataset.calendarField, field.value);
+      if (field.dataset.calendarField === "status") renderPlan();
+    });
+  });
+  document.querySelectorAll("[data-delete-calendar]").forEach(button => {
+    button.addEventListener("click", () => deleteCalendarItem(button.dataset.deleteCalendar));
+  });
+  const downloadCalendarButton = document.querySelector("#downloadCalendar");
+  if (downloadCalendarButton) {
+    downloadCalendarButton.addEventListener("click", () => {
+      downloadFile(`${currentPlan.input.keyword}-content-calendar.csv`, toCalendarCsv(currentPlan), "text/csv;charset=utf-8");
+      showToast("内容日历 CSV 已生成");
+    });
+  }
   const copyReportButton = document.querySelector("#copyReport");
   if (copyReportButton) {
     copyReportButton.addEventListener("click", async () => {
@@ -1990,6 +2222,29 @@ function toCsv(plan) {
   const rows = plan.spokes.map(item => [item.hub, item.keyword, item.intent, item.pageType, item.businessValue, item.priority, item.cta]);
   return [headers, ...rows]
     .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+}
+
+function toCalendarCsv(plan) {
+  const headers = ["Project", "Title", "Hub", "Intent", "Page Type", "Status", "Owner", "Planned Date", "Published Date", "URL", "Notes"];
+  const rows = contentCalendar
+    .filter(item => item.projectKeyword === plan.input.keyword)
+    .sort((a, b) => (a.plannedDate || "9999-12-31").localeCompare(b.plannedDate || "9999-12-31"))
+    .map(item => [
+      item.projectKeyword,
+      item.title,
+      item.hub,
+      item.intent,
+      item.pageType,
+      item.status,
+      item.owner,
+      item.plannedDate,
+      item.publishedDate,
+      item.url,
+      item.notes
+    ]);
+  return [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell || "").replace(/"/g, '""')}"`).join(","))
     .join("\n");
 }
 
