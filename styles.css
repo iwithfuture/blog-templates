@@ -846,6 +846,64 @@ tr:last-child td {
   margin-top: 12px;
 }
 
+.article-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.writing-brief-panel,
+.writing-editor-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.writing-brief-panel {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.writing-brief-panel .content-card {
+  box-shadow: none;
+}
+
+.writing-editor {
+  min-height: 760px;
+  max-height: none;
+  font-family:
+    "Cascadia Code", Consolas, "Microsoft YaHei", monospace;
+}
+
+.checklist-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checklist-grid span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.check-pass {
+  background: #e6f4ef;
+  color: var(--green);
+}
+
+.check-missing {
+  background: #fff3df;
+  color: var(--amber);
+}
+
 .empty-state {
   display: grid;
   min-height: 280px;
@@ -952,6 +1010,15 @@ tr:last-child td {
 
   .url-analyzer {
     grid-template-columns: 1fr;
+  }
+
+  .article-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .writing-brief-panel {
+    position: static;
+    max-height: none;
   }
 }
 

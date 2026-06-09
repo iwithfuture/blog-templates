@@ -19,6 +19,7 @@ let articleState = "idle";
 let articleMessage = "";
 let savedProjects = loadProjects();
 let contentCalendar = loadContentCalendar();
+let articleDrafts = loadArticleDrafts();
 let competitorAnalysis = null;
 let competitorState = "idle";
 let competitorMessage = "";
@@ -80,6 +81,19 @@ function loadContentCalendar() {
 
 function saveContentCalendar() {
   localStorage.setItem("seoContentCalendar", JSON.stringify(contentCalendar));
+}
+
+function loadArticleDrafts() {
+  try {
+    return JSON.parse(localStorage.getItem("seoArticleDrafts") || "{}");
+  } catch {
+    localStorage.removeItem("seoArticleDrafts");
+    return {};
+  }
+}
+
+function saveArticleDrafts() {
+  localStorage.setItem("seoArticleDrafts", JSON.stringify(articleDrafts));
 }
 
 function getFormData() {
@@ -768,6 +782,80 @@ function countLabel(value, suffix = "次") {
   return `${escapeHtml(value.text)}（${value.count}${suffix}）`;
 }
 
+function articleDraftKey(plan = currentPlan) {
+  if (!plan?.input?.keyword || !plan?.brief?.targetKeyword) return "";
+  return `${plan.input.keyword}::${plan.brief.targetKeyword}`.toLowerCase();
+}
+
+function getSavedArticleDraft(plan = currentPlan) {
+  const key = articleDraftKey(plan);
+  return key ? articleDrafts[key] || null : null;
+}
+
+function buildStarterArticle(brief, plan) {
+  const faq = (plan.faq || []).slice(0, 5).map(item => `### ${item}\n\n待补充答案。`).join("\n\n");
+  const outline = brief.outline.map(item => `## ${item}\n\n待补充内容。`).join("\n\n");
+  return [
+    `# ${brief.h1}`,
+    "",
+    `> AEO 摘要：${brief.summary}`,
+    "",
+    "## SEO 信息",
+    "",
+    `- Meta Title：${brief.metaTitle}`,
+    `- Meta Description：${brief.metaDescription}`,
+    `- 目标关键词：${brief.targetKeyword}`,
+    `- 次级关键词：${brief.secondaryKeywords.join(" / ")}`,
+    "",
+    outline,
+    "",
+    "## 表格 / 案例",
+    "",
+    brief.tableIdeas.map(item => `- ${item}`).join("\n"),
+    "",
+    brief.caseIdea,
+    "",
+    "## FAQ",
+    "",
+    faq || "待补充 FAQ。",
+    "",
+    "## CTA",
+    "",
+    `${plan.input.coreOffer}`
+  ].join("\n");
+}
+
+function currentArticleText(plan = currentPlan) {
+  if (currentArticle?.keyword === plan.brief.targetKeyword) return currentArticle.article || "";
+  const draft = getSavedArticleDraft(plan);
+  if (draft?.article) return draft.article;
+  return buildStarterArticle(plan.brief, plan);
+}
+
+function saveCurrentArticleDraft() {
+  if (!currentPlan) return;
+  const editor = document.querySelector("#articleEditor");
+  const articleText = editor?.value || currentArticleText(currentPlan);
+  const key = articleDraftKey(currentPlan);
+  if (!key) return;
+
+  articleDrafts[key] = {
+    projectKeyword: currentPlan.input.keyword,
+    keyword: currentPlan.brief.targetKeyword,
+    article: articleText,
+    updatedAt: new Date().toISOString()
+  };
+  saveArticleDrafts();
+  currentArticle = {
+    keyword: currentPlan.brief.targetKeyword,
+    article: articleText,
+    model: currentArticle?.model || "手动草稿",
+    usage: currentArticle?.usage || null
+  };
+  articleState = "ready";
+  showToast("文章草稿已保存");
+}
+
 function findContentItem(keyword) {
   if (!currentPlan) return null;
   return [...currentPlan.spokes, ...currentPlan.priority].find(item => item.keyword === keyword) || null;
@@ -1311,6 +1399,95 @@ function renderArticleConfigCard() {
   `;
 }
 
+function renderWritingChecklist(articleText, plan) {
+  const checks = [
+    { label: "包含 H1", pass: /^#\s+/m.test(articleText) },
+    { label: "至少 4 个 H2", pass: (articleText.match(/^##\s+/gm) || []).length >= 4 },
+    { label: "包含 FAQ", pass: /faq|常见问题|问答/i.test(articleText) },
+    { label: "包含 CTA", pass: articleText.includes(plan.input.coreOffer) || /咨询|诊断|联系|下载/.test(articleText) },
+    { label: "包含目标关键词", pass: articleText.includes(plan.brief.targetKeyword) },
+    { label: "包含案例/经验", pass: /案例|经验|场景|示例|客户/.test(articleText) }
+  ];
+  const passed = checks.filter(item => item.pass).length;
+  return {
+    score: Math.round((passed / checks.length) * 100),
+    checks
+  };
+}
+
+function renderArticleWorkspace(plan) {
+  const brief = plan.brief;
+  const articleText = currentArticleText(plan);
+  const draft = getSavedArticleDraft(plan);
+  const quality = renderWritingChecklist(articleText, plan);
+  const linkIdeas = [
+    ...(plan.links?.spokeToHub || []).slice(0, 4),
+    ...(plan.links?.crossLinks || []).slice(0, 4)
+  ];
+
+  return `
+    <div class="article-workspace">
+      <aside class="writing-brief-panel">
+        <div class="content-card">
+          <h3>写作对象</h3>
+          <p><strong>${escapeHtml(brief.targetKeyword)}</strong></p>
+          <p>${escapeHtml(draft?.updatedAt ? `上次保存：${new Date(draft.updatedAt).toLocaleString("zh-CN")}` : "尚未保存草稿")}</p>
+          <button class="ghost-button" type="button" data-add-calendar="${escapeHtml(brief.targetKeyword)}">加入日历</button>
+        </div>
+        <div class="content-card">
+          <h3>SEO Brief</h3>
+          <p><strong>H1：</strong>${escapeHtml(brief.h1)}</p>
+          <p><strong>Meta Title：</strong>${escapeHtml(brief.metaTitle)}</p>
+          <p><strong>Meta Description：</strong>${escapeHtml(brief.metaDescription)}</p>
+          <p><strong>AEO 摘要：</strong>${escapeHtml(brief.summary)}</p>
+        </div>
+        <div class="content-card">
+          <h3>大纲</h3>
+          <ol class="brief-list">${brief.outline.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ol>
+        </div>
+        <div class="content-card">
+          <h3>关键词 / 实体</h3>
+          <p><strong>次级关键词：</strong>${escapeHtml(brief.secondaryKeywords.join(" / "))}</p>
+          <p><strong>实体：</strong>${escapeHtml(brief.requiredEntities.join(" / "))}</p>
+        </div>
+        <div class="content-card">
+          <h3>FAQ</h3>
+          <ul class="brief-list">${plan.faq.slice(0, 6).map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+        <div class="content-card">
+          <h3>内链建议</h3>
+          <ul class="brief-list">${linkIdeas.length ? linkIdeas.map(item => `<li>${escapeHtml(item)}</li>`).join("") : "<li>暂无内链建议。</li>"}</ul>
+        </div>
+      </aside>
+      <section class="writing-editor-panel">
+        <div class="content-card serp-hero">
+          <h3>文章编辑工作台</h3>
+          <p>左边看 Brief 和检查项，右边直接写正文。保存草稿后会保存在本地浏览器。</p>
+          <div class="toolbar-actions article-actions">
+            <button id="saveArticleDraft" class="primary-action compact-action" type="button">保存草稿</button>
+            <button id="copyArticle" class="ghost-button" type="button">复制文章</button>
+            <button id="downloadArticle" class="ghost-button" type="button">下载 Markdown</button>
+            <button id="generateArticle" class="ghost-button" type="button"><span aria-hidden="true">↻</span>生成/重生成</button>
+          </div>
+        </div>
+        <div class="grid-cards">
+          <div class="metric-card"><span>发布前评分</span><strong>${quality.score}/100</strong></div>
+          <div class="metric-card"><span>字数估算</span><strong>${articleText.replace(/\s+/g, "").length}</strong></div>
+          <div class="metric-card"><span>建议字数</span><strong>${escapeHtml(brief.wordCount)}</strong></div>
+        </div>
+        <div class="content-card">
+          <h3>发布前检查</h3>
+          <div class="checklist-grid">
+            ${quality.checks.map(item => `<span class="${item.pass ? "check-pass" : "check-missing"}">${item.pass ? "✓" : "!"} ${escapeHtml(item.label)}</span>`).join("")}
+          </div>
+        </div>
+        <textarea id="articleEditor" class="article-preview article-editor writing-editor" spellcheck="false">${escapeHtml(articleText)}</textarea>
+        ${renderArticleConfigCard()}
+      </section>
+    </div>
+  `;
+}
+
 function renderArticle(plan) {
   if (articleState === "loading") {
     return `
@@ -1327,40 +1504,13 @@ function renderArticle(plan) {
         <div class="content-card serp-hero">
           <h3>文章生成未启用</h3>
           <p>${escapeHtml(articleMessage || "暂时无法生成文章。")}</p>
-          <button id="generateArticle" class="primary-action compact-action" type="button"><span aria-hidden="true">↻</span>重新生成</button>
         </div>
-        ${renderArticleConfigCard()}
+        ${renderArticleWorkspace(plan)}
       </div>
     `;
   }
 
-  if (!currentArticle || currentArticle.keyword !== plan.brief.targetKeyword) {
-    return `
-      <div class="brief-block">
-        <div class="content-card serp-hero">
-          <h3>文章初稿</h3>
-          <p>基于当前页面结构生成一篇可编辑的 SEO Markdown 初稿。生成后仍需要你补充真实案例、图片、数据来源和内链。</p>
-          <button id="generateArticle" class="primary-action compact-action" type="button">生成完整文章</button>
-        </div>
-        ${renderArticleConfigCard()}
-      </div>
-    `;
-  }
-
-  return `
-    <div class="brief-block">
-      <div class="content-card serp-hero">
-        <h3>文章初稿：${escapeHtml(currentArticle.keyword)}</h3>
-        <p>模型：${escapeHtml(currentArticle.model || "OpenAI")}。请人工核实案例、价格、数据和事实后再发布。</p>
-        <div class="toolbar-actions article-actions">
-          <button id="copyArticle" class="ghost-button" type="button">复制文章</button>
-          <button id="downloadArticle" class="ghost-button" type="button">下载 Markdown</button>
-          <button id="generateArticle" class="ghost-button" type="button"><span aria-hidden="true">↻</span>重新生成</button>
-        </div>
-      </div>
-      <textarea id="articleEditor" class="article-preview article-editor" spellcheck="false">${escapeHtml(currentArticle.article)}</textarea>
-    </div>
-  `;
+  return renderArticleWorkspace(plan);
 }
 
 function renderAeo(plan) {
@@ -1855,13 +2005,16 @@ function renderPlan() {
   if (generateArticleButton) {
     generateArticleButton.addEventListener("click", generateArticle);
   }
+  const saveArticleDraftButton = document.querySelector("#saveArticleDraft");
+  if (saveArticleDraftButton) {
+    saveArticleDraftButton.addEventListener("click", saveCurrentArticleDraft);
+  }
   const copyArticleButton = document.querySelector("#copyArticle");
   if (copyArticleButton) {
     copyArticleButton.addEventListener("click", async () => {
-      if (!currentArticle?.article) return;
       const editor = document.querySelector("#articleEditor");
-      const articleText = editor?.value || currentArticle.article;
-      currentArticle.article = articleText;
+      const articleText = editor?.value || currentArticleText(currentPlan);
+      if (currentArticle) currentArticle.article = articleText;
       const copied = await copyText(articleText);
       showToast(copied ? "文章已复制" : "当前浏览器禁止自动复制", copied ? "success" : "warning");
     });
@@ -1869,11 +2022,10 @@ function renderPlan() {
   const downloadArticleButton = document.querySelector("#downloadArticle");
   if (downloadArticleButton) {
     downloadArticleButton.addEventListener("click", () => {
-      if (!currentArticle?.article) return;
       const editor = document.querySelector("#articleEditor");
-      const articleText = editor?.value || currentArticle.article;
-      currentArticle.article = articleText;
-      downloadFile(`${currentArticle.keyword}-article.md`, articleText, "text/markdown;charset=utf-8");
+      const articleText = editor?.value || currentArticleText(currentPlan);
+      if (currentArticle) currentArticle.article = articleText;
+      downloadFile(`${currentPlan.brief.targetKeyword}-article.md`, articleText, "text/markdown;charset=utf-8");
       showToast("Markdown 已生成，浏览器会开始下载");
     });
   }
@@ -2142,6 +2294,16 @@ async function generateArticle() {
       model: data.model,
       usage: data.usage
     };
+    const key = articleDraftKey(currentPlan);
+    if (key) {
+      articleDrafts[key] = {
+        projectKeyword: currentPlan.input.keyword,
+        keyword: currentPlan.brief.targetKeyword,
+        article: data.article,
+        updatedAt: new Date().toISOString()
+      };
+      saveArticleDrafts();
+    }
     articleState = "ready";
   } catch (error) {
     currentArticle = null;
