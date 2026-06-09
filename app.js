@@ -877,8 +877,13 @@ function makeCalendarItem(sourceItem, plan, index = 0) {
 
 function addCalendarItem(keyword) {
   if (!currentPlan) return;
-  const sourceItem = findContentItem(keyword);
-  if (!sourceItem) return;
+  const sourceItem = findContentItem(keyword) || {
+    keyword,
+    hub: currentPlan.hubs[0]?.name || `${currentPlan.input.keyword}指南`,
+    intent: "教程执行",
+    pageType: "教程型文章",
+    cta: currentPlan.input.coreOffer
+  };
   const id = calendarId(currentPlan.input.keyword, sourceItem.keyword);
   if (contentCalendar.some(item => item.id === id)) {
     showToast("这篇内容已经在内容日历里了", "warning");
@@ -1166,7 +1171,7 @@ function renderExpansion(plan) {
     escapeHtml(item.use),
     escapeHtml(item.pageType),
     badge(item.priority),
-    `<div class="inline-actions">${addSpokeButton(item.keyword, item.use)}${briefButton(item.keyword)}</div>`
+    `<div class="inline-actions">${addSpokeButton(item.keyword, item.use)}${briefButton(item.keyword)}${calendarButton(item.keyword)}</div>`
   ]);
   const hubCount = candidates.filter(item => item.use.includes("Hub")).length;
   const spokeCount = candidates.filter(item => item.use.includes("Spoke")).length;
@@ -1242,7 +1247,10 @@ function renderBrief(plan) {
         <p><strong>AEO 开头摘要：</strong>${escapeHtml(brief.summary)}</p>
         <p><strong>建议字数：</strong>${escapeHtml(brief.wordCount)}</p>
         <p><strong>写作语气：</strong>${escapeHtml(brief.tone)}</p>
-        <button id="generateArticle" class="primary-action compact-action" type="button">生成完整文章</button>
+        <div class="toolbar-actions article-actions">
+          <button id="generateArticle" class="primary-action compact-action" type="button">生成完整文章</button>
+          <button class="ghost-button" type="button" data-add-calendar="${escapeHtml(brief.targetKeyword)}">加入日历</button>
+        </div>
       </div>
       <div class="section-grid">
         <div class="content-card">
