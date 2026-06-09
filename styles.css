@@ -894,6 +894,18 @@ tr:last-child td {
   font-weight: 900;
 }
 
+.check-pass,
+.check-missing {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .check-pass {
   background: #e6f4ef;
   color: var(--green);

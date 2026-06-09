@@ -836,24 +836,29 @@ function saveCurrentArticleDraft() {
   if (!currentPlan) return;
   const editor = document.querySelector("#articleEditor");
   const articleText = editor?.value || currentArticleText(currentPlan);
-  const key = articleDraftKey(currentPlan);
+  persistArticleDraft(articleText, currentPlan);
+  showToast("文章草稿已保存");
+  renderPlan();
+}
+
+function persistArticleDraft(articleText, plan = currentPlan) {
+  const key = articleDraftKey(plan);
   if (!key) return;
 
   articleDrafts[key] = {
-    projectKeyword: currentPlan.input.keyword,
-    keyword: currentPlan.brief.targetKeyword,
+    projectKeyword: plan.input.keyword,
+    keyword: plan.brief.targetKeyword,
     article: articleText,
     updatedAt: new Date().toISOString()
   };
   saveArticleDrafts();
   currentArticle = {
-    keyword: currentPlan.brief.targetKeyword,
+    keyword: plan.brief.targetKeyword,
     article: articleText,
     model: currentArticle?.model || "手动草稿",
     usage: currentArticle?.usage || null
   };
   articleState = "ready";
-  showToast("文章草稿已保存");
 }
 
 function findContentItem(keyword) {
@@ -1399,27 +1404,75 @@ function renderArticleConfigCard() {
   `;
 }
 
-function renderWritingChecklist(articleText, plan) {
-  const checks = [
-    { label: "包含 H1", pass: /^#\s+/m.test(articleText) },
-    { label: "至少 4 个 H2", pass: (articleText.match(/^##\s+/gm) || []).length >= 4 },
-    { label: "包含 FAQ", pass: /faq|常见问题|问答/i.test(articleText) },
-    { label: "包含 CTA", pass: articleText.includes(plan.input.coreOffer) || /咨询|诊断|联系|下载/.test(articleText) },
-    { label: "包含目标关键词", pass: articleText.includes(plan.brief.targetKeyword) },
-    { label: "包含案例/经验", pass: /案例|经验|场景|示例|客户/.test(articleText) }
-  ];
-  const passed = checks.filter(item => item.pass).length;
+function extractLineValue(articleText, label) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = articleText.match(new RegExp(`${escaped}[：:]\\s*(.+)`, "i"));
+  return match?.[1]?.trim() || "";
+}
+
+function articleStats(articleText) {
   return {
-    score: Math.round((passed / checks.length) * 100),
-    checks
+    chars: articleText.replace(/\s+/g, "").length,
+    h1: (articleText.match(/^#\s+/gm) || []).length,
+    h2: (articleText.match(/^##\s+/gm) || []).length,
+    h3: (articleText.match(/^###\s+/gm) || []).length,
+    links: (articleText.match(/\[[^\]]+\]\([^)]+\)/g) || []).length,
+    images: (articleText.match(/!\[[^\]]*]\([^)]+\)/g) || []).length,
+    tables: (articleText.match(/\|[-:\s|]{3,}\|/g) || []).length
   };
+}
+
+function qualityStatus(pass) {
+  return pass ? "通过" : "待补";
+}
+
+function evaluatePrepublishQuality(articleText, plan) {
+  const brief = plan.brief;
+  const input = plan.input;
+  const stats = articleStats(articleText);
+  const metaTitle = extractLineValue(articleText, "Meta Title");
+  const metaDescription = extractLineValue(articleText, "Meta Description");
+  const hasPlaceholder = /待补充|TODO|示例\/匿名场景|这里补充|待核实/i.test(articleText);
+  const keywordCount = (articleText.match(new RegExp(brief.targetKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+  const checks = [
+    { category: "SEO", item: "唯一 H1", pass: stats.h1 === 1, fix: "正文只保留一个 # H1，其他主标题降级为 H2。" },
+    { category: "SEO", item: "H1/正文包含目标关键词", pass: articleText.includes(brief.targetKeyword), fix: `至少在 H1、首段或正文自然出现「${brief.targetKeyword}」。` },
+    { category: "SEO", item: "Meta Title 长度合适", pass: metaTitle.length >= 10 && metaTitle.length <= 65, fix: "补充 10-65 字左右的 Meta Title，并包含点击理由。" },
+    { category: "SEO", item: "Meta Description 长度合适", pass: metaDescription.length >= 60 && metaDescription.length <= 170, fix: "补充 60-170 字左右的 Meta Description，说明价值和 CTA。" },
+    { category: "SEO", item: "H2 覆盖足够", pass: stats.h2 >= 4, fix: "至少保留 4 个 H2，覆盖定义、方法、流程、成本、FAQ 或案例。" },
+    { category: "SEO", item: "关键词不过度堆砌", pass: keywordCount <= Math.max(8, Math.ceil(stats.chars / 450)), fix: "减少机械重复，把关键词改成同义词、实体词和自然表达。" },
+    { category: "AEO/GEO", item: "开头有直接答案", pass: articleText.includes(brief.summary) || /AEO 摘要|直接答案|简短回答/.test(articleText.slice(0, 600)), fix: "在开头 120 字内直接回答搜索者问题。" },
+    { category: "AEO/GEO", item: "包含 FAQ 区块", pass: /(^##\s*FAQ|常见问题|问答)/im.test(articleText), fix: "添加 FAQ 区块，覆盖 3-6 个真实问题。" },
+    { category: "AEO/GEO", item: "包含表格/清单", pass: stats.tables > 0 || /清单|对比表|判断表|步骤/.test(articleText), fix: "补一个流程表、对比表、费用判断表或检查清单。" },
+    { category: "AEO/GEO", item: "Schema 已规划", pass: Array.isArray(plan.schema) && plan.schema.length >= 3, fix: "发布时补 Article/Breadcrumb/FAQ/Organization 等结构化数据。" },
+    { category: "E-E-A-T", item: "品牌/作者信息完整", pass: input.brandName !== "你的品牌" && input.authorName !== "作者/专家", fix: "补品牌名、作者名和作者页/关于页信息。" },
+    { category: "E-E-A-T", item: "包含经验或案例证明", pass: /案例|经验|截图|数据|客户|结果|来源|实操/.test(articleText) || Boolean(input.proofPoints), fix: "加入真实案例、匿名场景、截图、过程经验或数据来源。" },
+    { category: "转化", item: "包含明确 CTA", pass: articleText.includes(input.coreOffer) || /咨询|诊断|报价|下载|联系/.test(articleText), fix: `在中段或结尾加入 CTA：${input.coreOffer}。` },
+    { category: "转化", item: "有内链/下一步路径", pass: stats.links >= 2 || (plan.links?.spokeToHub || []).length > 0, fix: "补 2 个以上站内链接：Hub、相关 Spoke、服务页或案例页。" },
+    { category: "可发布性", item: "无明显占位内容", pass: !hasPlaceholder, fix: "把“待补充/待核实/示例”替换成真实内容，或发布前删除。" },
+    { category: "可发布性", item: "图片/素材提示", pass: stats.images > 0 || /图片|截图|流程图|示意图|表格/.test(articleText), fix: "至少规划封面、流程图、截图或表格，并补 Alt 文本。" }
+  ];
+  const categoryNames = [...new Set(checks.map(item => item.category))];
+  const categoryRows = categoryNames.map(category => {
+    const group = checks.filter(item => item.category === category);
+    const passed = group.filter(item => item.pass).length;
+    return {
+      category,
+      score: Math.round((passed / group.length) * 100),
+      passed,
+      total: group.length
+    };
+  });
+  const score = Math.round(checks.filter(item => item.pass).length / checks.length * 100);
+  const fixes = checks.filter(item => !item.pass).slice(0, 8).map(item => `${item.category}：${item.fix}`);
+  return { score, checks, categoryRows, fixes, stats, metaTitle, metaDescription };
 }
 
 function renderArticleWorkspace(plan) {
   const brief = plan.brief;
   const articleText = currentArticleText(plan);
   const draft = getSavedArticleDraft(plan);
-  const quality = renderWritingChecklist(articleText, plan);
+  const quality = evaluatePrepublishQuality(articleText, plan);
   const linkIdeas = [
     ...(plan.links?.spokeToHub || []).slice(0, 4),
     ...(plan.links?.crossLinks || []).slice(0, 4)
@@ -1472,14 +1525,15 @@ function renderArticleWorkspace(plan) {
         </div>
         <div class="grid-cards">
           <div class="metric-card"><span>发布前评分</span><strong>${quality.score}/100</strong></div>
-          <div class="metric-card"><span>字数估算</span><strong>${articleText.replace(/\s+/g, "").length}</strong></div>
+          <div class="metric-card"><span>字数估算</span><strong>${quality.stats.chars}</strong></div>
           <div class="metric-card"><span>建议字数</span><strong>${escapeHtml(brief.wordCount)}</strong></div>
         </div>
         <div class="content-card">
           <h3>发布前检查</h3>
           <div class="checklist-grid">
-            ${quality.checks.map(item => `<span class="${item.pass ? "check-pass" : "check-missing"}">${item.pass ? "✓" : "!"} ${escapeHtml(item.label)}</span>`).join("")}
+            ${quality.checks.slice(0, 10).map(item => `<span class="${item.pass ? "check-pass" : "check-missing"}">${qualityStatus(item.pass)} ${escapeHtml(item.item)}</span>`).join("")}
           </div>
+          <button class="ghost-button compact-action" type="button" data-open-tab="prepublish">查看完整检查</button>
         </div>
         <textarea id="articleEditor" class="article-preview article-editor writing-editor" spellcheck="false">${escapeHtml(articleText)}</textarea>
         ${renderArticleConfigCard()}
@@ -1511,6 +1565,46 @@ function renderArticle(plan) {
   }
 
   return renderArticleWorkspace(plan);
+}
+
+function renderPrepublish(plan) {
+  const articleText = currentArticleText(plan);
+  const quality = evaluatePrepublishQuality(articleText, plan);
+  const categoryRows = quality.categoryRows.map(item => [
+    escapeHtml(item.category),
+    `<div class="score-bar" aria-label="${escapeHtml(item.category)} ${item.score}分"><span style="width: ${item.score}%"></span><strong>${item.score}</strong></div>`,
+    `${item.passed}/${item.total}`
+  ]);
+  const checkRows = quality.checks.map(item => [
+    escapeHtml(item.category),
+    `<span class="${item.pass ? "check-pass" : "check-missing"}">${qualityStatus(item.pass)}</span>`,
+    escapeHtml(item.item),
+    escapeHtml(item.fix)
+  ]);
+
+  return `
+    <div class="brief-block">
+      <div class="grid-cards">
+        <div class="metric-card"><span>发布前评分</span><strong>${quality.score}/100</strong></div>
+        <div class="metric-card"><span>正文长度</span><strong>${quality.stats.chars}</strong></div>
+        <div class="metric-card"><span>H2/H3</span><strong>${quality.stats.h2}/${quality.stats.h3}</strong></div>
+      </div>
+      <div class="content-card serp-hero">
+        <h3>发布前质量检查</h3>
+        <p>用于上线前最后审稿。先在文章编辑工作台保存草稿，再回到这里检查 SEO、AEO/GEO、E-E-A-T、转化和可发布性。</p>
+        <div class="toolbar-actions article-actions">
+          <button class="primary-action compact-action" type="button" data-open-tab="article">返回编辑文章</button>
+          <button id="copyPrepublishFixes" class="ghost-button" type="button">复制修复建议</button>
+        </div>
+      </div>
+      <div class="content-card"><h3>分项得分</h3>${renderTable(["维度", "得分", "通过项"], categoryRows)}</div>
+      <div class="content-card">
+        <h3>优先修复</h3>
+        ${quality.fixes.length ? `<ul class="brief-list">${quality.fixes.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "<p>主要检查项都已通过，可以进入人工事实核查和 CMS 发布。</p>"}
+      </div>
+      <div class="content-card"><h3>检查明细</h3>${renderTable(["维度", "状态", "检查项", "修复建议"], checkRows)}</div>
+    </div>
+  `;
 }
 
 function renderAeo(plan) {
@@ -1970,6 +2064,7 @@ function renderPlan() {
     dataIntent: renderDataIntent,
     brief: renderBrief,
     article: renderArticle,
+    prepublish: renderPrepublish,
     aeo: renderAeo,
     eeat: renderEeat,
     schema: renderSchema,
@@ -2085,6 +2180,28 @@ function renderPlan() {
   const analyzeCompetitorButton = document.querySelector("#analyzeCompetitor");
   if (analyzeCompetitorButton) {
     analyzeCompetitorButton.addEventListener("click", analyzeCompetitor);
+  }
+  document.querySelectorAll("[data-open-tab]").forEach(button => {
+    button.addEventListener("click", () => {
+      const editor = document.querySelector("#articleEditor");
+      if (editor && button.dataset.openTab === "prepublish") {
+        persistArticleDraft(editor.value, currentPlan);
+      }
+      activeTab = button.dataset.openTab;
+      tabs.forEach(item => item.classList.toggle("is-active", item.dataset.tab === activeTab));
+      renderPlan();
+    });
+  });
+  const copyPrepublishFixesButton = document.querySelector("#copyPrepublishFixes");
+  if (copyPrepublishFixesButton) {
+    copyPrepublishFixesButton.addEventListener("click", async () => {
+      const quality = evaluatePrepublishQuality(currentArticleText(currentPlan), currentPlan);
+      const text = quality.fixes.length
+        ? quality.fixes.map((item, index) => `${index + 1}. ${item}`).join("\n")
+        : "发布前质量检查主要项目均已通过。";
+      const copied = await copyText(text);
+      showToast(copied ? "修复建议已复制" : "当前浏览器禁止自动复制", copied ? "success" : "warning");
+    });
   }
 }
 
